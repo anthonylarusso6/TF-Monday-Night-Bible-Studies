@@ -133,7 +133,7 @@ export default function Home() {
         <div style={{ fontWeight: 900, fontSize: 28, letterSpacing: 2, fontFamily: "Arial, sans-serif" }}>
           TRIPLE F
         </div>
-        <h1>Monday Night Bible Studies</h1>
+        <h1>Monday Night Bible Study's</h1>
         <p>Triple F Sports · Knoxville, TN · 2025–2026</p>
       </header>
 

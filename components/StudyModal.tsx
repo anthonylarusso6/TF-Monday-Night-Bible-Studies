@@ -105,7 +105,7 @@ h1{font-size:22px;text-align:center;margin-bottom:4px}.th{font-size:13px;text-al
   }
 
   function doCopyCard() {
-    let txt = `TF Bible Studies\n${study.title} | ${study.date}\n\n${study.bi}\n\n3 Takeaways\n`;
+    let txt = `TF Monday Night Bible Study's\n${study.title} | ${study.date}\n\n${study.bi}\n\n3 Takeaways\n`;
     for (let i = 0; i < study.tk.length; i++) txt += `${i + 1}. ${study.tk[i].ti}\n`;
     copyText(txt) ? onToast("Social card text copied!") : onToast("Could not copy — try again.");
   }
@@ -272,7 +272,7 @@ h1{font-size:22px;text-align:center;margin-bottom:4px}.th{font-size:13px;text-al
               <hr className="divider" />
               <div className="divider-label">Social Media Card</div>
               <div className="social-card" ref={socialRef}>
-                <div className="social-card-logo">TF Bible Studies</div>
+                <div className="social-card-logo">TF Monday Night Bible Study's</div>
                 <div className="social-card-title">{study.title}</div>
                 <div className="social-card-meta">
                   {study.date}{study.series ? ` · ${study.series}` : ""}
