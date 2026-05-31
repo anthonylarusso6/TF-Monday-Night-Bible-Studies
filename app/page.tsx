@@ -8,9 +8,10 @@ import StudyGrid from "@/components/StudyGrid";
 import StudyModal from "@/components/StudyModal";
 import TopicIdeas from "@/components/TopicIdeas";
 import CreateStudy from "@/components/CreateStudy";
+import AttendanceChart from "@/components/AttendanceChart";
 import Toast from "@/components/Toast";
 
-type Tab = "all" | "liked" | "drafts" | "series" | "topics" | "create";
+type Tab = "all" | "liked" | "drafts" | "series" | "topics" | "create" | "chart";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "all", label: "All Studies" },
@@ -19,6 +20,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "series", label: "📚 Series" },
   { id: "topics", label: "💡 Topic Ideas" },
   { id: "create", label: "✏️ Create Study" },
+  { id: "chart", label: "📊 Attendance" },
 ];
 
 const GRID_TABS = new Set<Tab>(["all", "liked", "drafts", "series"]);
@@ -32,15 +34,31 @@ export default function Home() {
   const [dark, setDark] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [attendanceGoal, setAttendanceGoal] = useState(20);
+  const [editingGoal, setEditingGoal] = useState(false);
+  const [goalInput, setGoalInput] = useState("20");
 
-  // Load user data from Supabase on mount
+  // Load user data + preferences from localStorage/Supabase
   useEffect(() => {
+    const savedDark = localStorage.getItem("tf_dark") === "true";
+    const savedGoal = parseInt(localStorage.getItem("tf_goal") || "20");
+    setDark(savedDark);
+    setAttendanceGoal(savedGoal);
+    setGoalInput(String(savedGoal));
     loadUserData().then((data) => { setUserData(data); setLoaded(true); });
   }, []);
 
-  // Dark mode sync
+  // Register service worker
+  useEffect(() => {
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(() => {});
+    }
+  }, []);
+
+  // Dark mode sync + persist
   useEffect(() => {
     document.body.classList.toggle("dark", dark);
+    localStorage.setItem("tf_dark", String(dark));
   }, [dark]);
 
   const persist = useCallback(async (next: UserData) => {
@@ -48,7 +66,6 @@ export default function Home() {
     await saveUserData(next);
   }, []);
 
-  // All studies: hardcoded + generated, newest first
   const allStudies: Study[] = [
     ...generatedStudies,
     ...STUDIES,
@@ -61,20 +78,15 @@ export default function Home() {
 
   async function toggleLike(id: string | number) {
     const sid = String(id);
-    const next: UserData = { ...userData, liked: { ...userData.liked, [sid]: !userData.liked[sid] } };
-    await persist(next);
+    await persist({ ...userData, liked: { ...userData.liked, [sid]: !userData.liked[sid] } });
   }
 
   async function handleSaveNotes(id: string | number, notes: string) {
-    const sid = String(id);
-    const next: UserData = { ...userData, notes: { ...userData.notes, [sid]: notes } };
-    await persist(next);
+    await persist({ ...userData, notes: { ...userData.notes, [String(id)]: notes } });
   }
 
   async function handleSaveAttend(id: string | number, count: number) {
-    const sid = String(id);
-    const next: UserData = { ...userData, attendance: { ...userData.attendance, [sid]: count } };
-    await persist(next);
+    await persist({ ...userData, attendance: { ...userData.attendance, [String(id)]: count } });
   }
 
   async function handleCreateDraft(topic: string) {
@@ -92,18 +104,13 @@ export default function Home() {
       qs: [],
       tk: [],
     };
-    const next: UserData = { ...userData, drafts: [draft, ...userData.drafts] };
-    await persist(next);
+    await persist({ ...userData, drafts: [draft, ...userData.drafts] });
     setTab("drafts");
     showToast(`Draft created: ${topic}`);
   }
 
   async function handleDeleteDraft(id: string | number) {
-    const next: UserData = {
-      ...userData,
-      drafts: userData.drafts.filter((d) => String(d.id) !== String(id)),
-    };
-    await persist(next);
+    await persist({ ...userData, drafts: userData.drafts.filter((d) => String(d.id) !== String(id)) });
     showToast("Draft deleted.");
   }
 
@@ -112,35 +119,45 @@ export default function Home() {
     setTab("all");
   }
 
-  function showToast(msg: string) {
-    setToast(msg);
+  function showToast(msg: string) { setToast(msg); }
+
+  function saveGoal() {
+    const n = parseInt(goalInput);
+    if (!isNaN(n) && n > 0) {
+      setAttendanceGoal(n);
+      localStorage.setItem("tf_goal", String(n));
+    }
+    setEditingGoal(false);
   }
 
   const showGrid = GRID_TABS.has(tab);
-  const showSearch = showGrid;
 
   return (
     <>
-      {/* Header */}
       <header className="header">
-        <button
-          className="dark-btn"
-          onClick={() => setDark((d) => !d)}
-          title="Toggle dark mode"
-        >
+        <button className="dark-btn" onClick={() => setDark((d) => !d)} title="Toggle dark mode">
           {dark ? "☀️" : "🌙"}
         </button>
         <div style={{ fontWeight: 900, fontSize: 28, letterSpacing: 2, fontFamily: "Arial, sans-serif" }}>
           TRIPLE F
         </div>
-        <h1>Monday Night Bible Study's</h1>
+        <h1>Monday Night Bible Study&apos;s</h1>
         <p>Triple F Sports · Knoxville, TN · 2025–2026</p>
       </header>
 
-      {/* Stats bar */}
-      {loaded && <StatsBar studies={allStudies} userData={userData} />}
+      {loaded && (
+        <StatsBar
+          studies={allStudies}
+          userData={userData}
+          goal={attendanceGoal}
+          editingGoal={editingGoal}
+          goalInput={goalInput}
+          onGoalClick={() => setEditingGoal(true)}
+          onGoalChange={setGoalInput}
+          onGoalSave={saveGoal}
+        />
+      )}
 
-      {/* Tab nav */}
       <nav className="tab-nav" role="tablist">
         {TABS.map((t) => (
           <button
@@ -155,9 +172,8 @@ export default function Home() {
         ))}
       </nav>
 
-      {/* Content */}
       <main className="content">
-        {showSearch && (
+        {showGrid && (
           <div className="search-wrap" style={{ margin: "0 0 4px" }}>
             <input
               className="search-input"
@@ -179,16 +195,21 @@ export default function Home() {
           />
         )}
 
-        {tab === "topics" && (
-          <TopicIdeas onCreateDraft={handleCreateDraft} />
-        )}
-
-        {tab === "create" && (
-          <CreateStudy onStudyCreated={handleStudyCreated} onToast={showToast} />
+        {tab === "topics" && <TopicIdeas onCreateDraft={handleCreateDraft} />}
+        {tab === "create" && <CreateStudy onStudyCreated={handleStudyCreated} onToast={showToast} />}
+        {tab === "chart" && (
+          <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <h2 style={{ fontSize: 18 }}>Attendance This Season</h2>
+              <a href="/student" target="_blank" style={{ fontSize: 13, fontFamily: "Arial, sans-serif", color: "var(--accent)", textDecoration: "none", fontWeight: 700 }}>
+                📱 Student View →
+              </a>
+            </div>
+            <AttendanceChart studies={allStudies} userData={userData} goal={attendanceGoal} />
+          </div>
         )}
       </main>
 
-      {/* Study modal */}
       {openStudy && (
         <StudyModal
           study={openStudy}
@@ -201,10 +222,7 @@ export default function Home() {
         />
       )}
 
-      {/* Toast */}
-      {toast && (
-        <Toast message={toast} onDone={() => setToast(null)} />
-      )}
+      {toast && <Toast message={toast} onDone={() => setToast(null)} />}
     </>
   );
 }

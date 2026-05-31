@@ -805,3 +805,15 @@ body.dark .error-box {
   .stat { min-width: 45%; }
   .modal-body { padding: 0 16px 24px; }
 }
+
+@media print {
+  body { background: #fff !important; color: #000 !important; }
+  .header, .stats-bar, .tab-nav, .content, .toast { display: none !important; }
+  .overlay { position: static !important; background: none !important; padding: 0 !important; display: block !important; }
+  .modal { box-shadow: none !important; border-radius: 0 !important; max-width: 100% !important; }
+  .modal-close { position: static !important; border-bottom: 1px solid #ccc !important; }
+  .close-btn, .btn-row, .notes-area, .save-btn, .attend-row, .divider, .divider-label, .social-card, .sccb, .btn-danger { display: none !important; }
+  .dq-a { display: block !important; }
+  .big-idea, .verse-box, .callout, .takeaway, .dq { border: 1px solid #ccc !important; background: #fff !important; }
+  .phrase { color: #000 !important; }
+}

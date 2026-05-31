@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { Study, UserData } from "@/lib/types";
 
 interface StudyModalProps {
@@ -29,6 +29,13 @@ export default function StudyModal({
   const handleOverlayClick = (e: React.MouseEvent) => {
     if (e.target === overlayRef.current) onClose();
   };
+
+  // ESC key closes modal
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onClose]);
 
   function copyText(txt: string) {
     try {
@@ -262,6 +269,7 @@ h1{font-size:22px;text-align:center;margin-bottom:4px}.th{font-size:13px;text-al
               <div className="divider-label">Student Tools</div>
               <div className="btn-row">
                 <button className="btn btn-primary" onClick={doDownload}>⬇ Download Student Page</button>
+                <button className="btn btn-outline" onClick={() => window.print()}>🖨 Print Leader Guide</button>
                 <button className="btn btn-outline" onClick={doCopyFull}>📋 Copy Full Study</button>
                 <button className="btn btn-outline" onClick={() => socialRef.current?.scrollIntoView({ behavior: "smooth" })}>
                   📱 Social Card

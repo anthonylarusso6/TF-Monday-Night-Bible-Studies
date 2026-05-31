@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" rx="96" fill="#0f4f6a"/>
+  <text x="256" y="220" font-family="Arial, sans-serif" font-weight="900" font-size="140" text-anchor="middle" fill="white" letter-spacing="4">TF</text>
+  <text x="256" y="310" font-family="Arial, sans-serif" font-weight="600" font-size="48" text-anchor="middle" fill="rgba(255,255,255,0.8)" letter-spacing="3">BIBLE</text>
+  <text x="256" y="370" font-family="Arial, sans-serif" font-weight="600" font-size="48" text-anchor="middle" fill="rgba(255,255,255,0.8)" letter-spacing="3">STUDY'S</text>
+</svg>
