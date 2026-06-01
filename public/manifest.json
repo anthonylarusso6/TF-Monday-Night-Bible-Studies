@@ -4,21 +4,21 @@
   "description": "Anthony's Monday Night Bible Study's at Triple F Sports, Knoxville TN",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0f4f6a",
-  "theme_color": "#0f4f6a",
+  "background_color": "#0a3a52",
+  "theme_color": "#0a3a52",
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "/icon-192.svg",
+      "src": "/tf-icon-sq.jpg",
       "sizes": "192x192",
-      "type": "image/svg+xml",
+      "type": "image/jpeg",
       "purpose": "any maskable"
     },
     {
       "src": "/icon-512.svg",
       "sizes": "512x512",
       "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "purpose": "any"
     }
   ]
 }

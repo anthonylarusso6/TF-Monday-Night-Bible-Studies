@@ -160,9 +160,9 @@ export default function Home() {
   const Sidebar = (
     <aside className={`sidebar${sidebarOpen ? " open" : ""}`}>
       <div className="sidebar-brand">
-        <img src="/logo.svg" alt="Triple F Bible Study's" style={{ width: 88, height: 88, marginBottom: 10, display: "block" }} />
-        <div className="sidebar-tagline" style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.6)", letterSpacing: 1 }}>Monday Night Bible Study&apos;s</div>
-        <div className="sidebar-location">Triple F Sports · Knoxville, TN</div>
+        <img src="/tf-logo-h.png" alt="Triple F Elite Sports Training" style={{ width: "100%", maxWidth: 180, marginBottom: 12, display: "block", filter: "brightness(0) invert(1)" }} />
+        <div className="sidebar-tagline" style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.55)", letterSpacing: 0.5 }}>Monday Night Bible Study&apos;s</div>
+        <div className="sidebar-location">Knoxville, TN</div>
       </div>
 
       <div className="sidebar-section">Library</div>
@@ -233,7 +233,7 @@ export default function Home() {
         {/* Mobile header */}
         <div className="mobile-header">
           <button className="hamburger" onClick={() => setSidebarOpen(o => !o)}>☰</button>
-          <img src="/logo.svg" alt="TF" style={{ width: 38, height: 38, flexShrink: 0 }} />
+          <img src="/tf-icon-sq.jpg" alt="TF" style={{ width: 36, height: 36, flexShrink: 0, borderRadius: 8 }} />
           <span className="mobile-title">{TITLES[tab]}</span>
           {isGrid && (
             <button className="mobile-search-btn" onClick={() => setShowSearch(s => !s)}>🔍</button>
