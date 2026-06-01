@@ -12,34 +12,28 @@ import Toast from "@/components/Toast";
 
 type Tab = "all" | "liked" | "drafts" | "series" | "topics" | "create" | "chart";
 
-const SIDEBAR_ITEMS: { id: Tab; icon: string; label: string }[] = [
-  { id: "all",    icon: "📖", label: "All Studies" },
-  { id: "liked",  icon: "❤️", label: "Liked" },
-  { id: "drafts", icon: "📝", label: "Drafts" },
-  { id: "series", icon: "📚", label: "Series" },
-];
-const SIDEBAR_TOOLS: { id: Tab; icon: string; label: string }[] = [
-  { id: "topics", icon: "💡", label: "Topic Ideas" },
-  { id: "create", icon: "✏️", label: "Create Study" },
-  { id: "chart",  icon: "📊", label: "Attendance" },
-];
-const BOTTOM_NAV: { id: Tab; icon: string; label: string }[] = [
-  { id: "all",    icon: "📖", label: "All" },
-  { id: "liked",  icon: "❤️", label: "Liked" },
-  { id: "create", icon: "✏️", label: "Create" },
-  { id: "series", icon: "📚", label: "Series" },
-  { id: "chart",  icon: "📊", label: "More" },
+const NAV = [
+  { id: "all" as Tab,    icon: "📖", label: "All Studies",  section: "library" },
+  { id: "liked" as Tab,  icon: "❤️", label: "Liked",        section: "library" },
+  { id: "drafts" as Tab, icon: "📝", label: "Drafts",       section: "library" },
+  { id: "series" as Tab, icon: "📚", label: "Series",       section: "library" },
+  { id: "topics" as Tab, icon: "💡", label: "Topic Ideas",  section: "tools"   },
+  { id: "create" as Tab, icon: "✏️", label: "Create Study", section: "tools"   },
+  { id: "chart" as Tab,  icon: "📊", label: "Attendance",   section: "tools"   },
 ];
 
-const SECTION_TITLES: Record<Tab, string> = {
-  all: "All Studies", liked: "Liked Studies", drafts: "Drafts",
-  series: "Series", topics: "Topic Ideas", create: "Create a Study", chart: "Attendance",
+const TITLES: Record<Tab, string> = {
+  all: "All Studies", liked: "Liked", drafts: "Drafts", series: "Series",
+  topics: "Topic Ideas", create: "Create Study", chart: "Attendance",
 };
+
 const GRID_TABS = new Set<Tab>(["all", "liked", "drafts", "series"]);
 
 export default function Home() {
   const [tab, setTab] = useState<Tab>("all");
   const [search, setSearch] = useState("");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
   const [userData, setUserData] = useState<UserData>({ liked: {}, notes: {}, attendance: {}, drafts: [] });
   const [generatedStudies, setGeneratedStudies] = useState<Study[]>([]);
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
@@ -61,7 +55,6 @@ export default function Home() {
     setHiddenIds(new Set(savedHidden));
 
     loadUserData().then((data) => {
-      // Generated studies stored in notes under key _g
       const rawNotes = data.notes as Record<string, string>;
       const savedGenerated: Study[] = rawNotes._g ? JSON.parse(rawNotes._g) : [];
       const { _g, ...cleanNotes } = rawNotes;
@@ -80,6 +73,13 @@ export default function Home() {
     document.body.classList.toggle("dark", dark);
     localStorage.setItem("tf_dark", String(dark));
   }, [dark]);
+
+  // Close sidebar on ESC
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") setSidebarOpen(false); };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
 
   const persist = useCallback(async (next: UserData, generated?: Study[]) => {
     const gen = generated ?? generatedStudies;
@@ -100,32 +100,28 @@ export default function Home() {
     const sid = String(id);
     await persist({ ...userData, liked: { ...userData.liked, [sid]: !userData.liked[sid] } });
   }
-
   async function handleSaveNotes(id: string | number, notes: string) {
     await persist({ ...userData, notes: { ...userData.notes, [String(id)]: notes } });
   }
-
   async function handleSaveAttend(id: string | number, count: number) {
     await persist({ ...userData, attendance: { ...userData.attendance, [String(id)]: count } });
   }
-
   async function handleCreateDraft(topic: string) {
     const draft: Study = {
       id: `draft_${Date.now()}`,
       date: new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }),
       title: topic, series: "", draft: true,
-      anchor: { ref: "", text: "" }, sup: [], bi: "Draft — build this study out.", bd: [], sbd: [], qs: [], tk: [],
+      anchor: { ref: "", text: "" }, sup: [], bi: "Draft — build this study out.",
+      bd: [], sbd: [], qs: [], tk: [],
     };
     await persist({ ...userData, drafts: [draft, ...userData.drafts] });
     changeTab("drafts");
     showToast(`Draft created: ${topic}`);
   }
-
   async function handleDeleteDraft(id: string | number) {
     await persist({ ...userData, drafts: userData.drafts.filter((d) => String(d.id) !== String(id)) });
     showToast("Draft deleted.");
   }
-
   async function handleDeleteStudy(id: string | number) {
     const sid = String(id);
     const updatedGen = generatedStudies.filter((s) => String(s.id) !== sid);
@@ -137,7 +133,6 @@ export default function Home() {
     await persist(userData, updatedGen);
     showToast("Study removed.");
   }
-
   async function handleStudyCreated(study: Study) {
     const updated = [study, ...generatedStudies];
     setGeneratedStudies(updated);
@@ -146,109 +141,123 @@ export default function Home() {
   }
 
   function showToast(msg: string) { setToast(msg); }
-  function changeTab(t: Tab) { setTab(t); setSearch(""); setOpenStudyId(null); }
-
+  function changeTab(t: Tab) {
+    setTab(t); setSearch(""); setOpenStudyId(null); setSidebarOpen(false); setShowSearch(false);
+  }
   function saveGoal() {
     const n = parseInt(goalInput);
     if (!isNaN(n) && n > 0) { setAttendanceGoal(n); localStorage.setItem("tf_goal", String(n)); }
     setEditingGoal(false);
   }
 
-  // Stats
   const published = allStudies.filter((s) => !s.draft).length;
-  const attendVals = Object.values(userData.attendance).filter(Boolean) as number[];
-  const avgAttend = attendVals.length ? Math.round(attendVals.reduce((a,b)=>a+b,0)/attendVals.length) : null;
+  const draftCount = userData.drafts.length;
   const likedCount = Object.values(userData.liked).filter(Boolean).length;
+  const attendVals = Object.values(userData.attendance).filter(Boolean) as number[];
+  const avgAttend = attendVals.length ? Math.round(attendVals.reduce((a, b) => a + b, 0) / attendVals.length) : null;
+  const isGrid = GRID_TABS.has(tab);
 
-  const showGrid = GRID_TABS.has(tab);
+  const Sidebar = (
+    <aside className={`sidebar${sidebarOpen ? " open" : ""}`}>
+      <div className="sidebar-brand">
+        <div className="sidebar-logo">TRIPLE F</div>
+        <div className="sidebar-tagline">Monday Night Bible Study&apos;s</div>
+        <div className="sidebar-location">Triple F Sports · Knoxville, TN</div>
+      </div>
 
-  return (
-    <div className="app-layout">
-      {/* ── Sidebar ── */}
-      <aside className="sidebar">
-        <div className="sidebar-brand">
-          <div className="sidebar-logo-text">TRIPLE F</div>
-          <div className="sidebar-subtitle">Monday Night Bible Study&apos;s</div>
-        </div>
+      <div className="sidebar-section">Library</div>
+      {NAV.filter(n => n.section === "library").map((item) => (
+        <button key={item.id} className={`sidebar-item${tab === item.id ? " active" : ""}`} onClick={() => changeTab(item.id)}>
+          <span className="sidebar-icon">{item.icon}</span>
+          {item.label}
+          {item.id === "drafts" && draftCount > 0 && <span className="sidebar-badge">{draftCount}</span>}
+          {item.id === "liked" && likedCount > 0 && <span className="sidebar-badge">{likedCount}</span>}
+        </button>
+      ))}
 
-        <div className="sidebar-section-label">Library</div>
-        {SIDEBAR_ITEMS.map((item) => (
-          <button key={item.id} className={`sidebar-item${tab === item.id ? " active" : ""}`} onClick={() => changeTab(item.id)}>
-            <span className="sidebar-icon">{item.icon}</span>
-            {item.label}
-            {item.id === "drafts" && userData.drafts.length > 0 && (
-              <span className="sidebar-badge">{userData.drafts.length}</span>
-            )}
-            {item.id === "liked" && likedCount > 0 && (
-              <span className="sidebar-badge">{likedCount}</span>
-            )}
-          </button>
-        ))}
+      <hr className="sidebar-divider" />
+      <div className="sidebar-section">Tools</div>
+      {NAV.filter(n => n.section === "tools").map((item) => (
+        <button key={item.id} className={`sidebar-item${tab === item.id ? " active" : ""}`} onClick={() => changeTab(item.id)}>
+          <span className="sidebar-icon">{item.icon}</span>
+          {item.label}
+        </button>
+      ))}
 
-        <hr className="sidebar-divider" />
-        <div className="sidebar-section-label">Tools</div>
-        {SIDEBAR_TOOLS.map((item) => (
-          <button key={item.id} className={`sidebar-item${tab === item.id ? " active" : ""}`} onClick={() => changeTab(item.id)}>
-            <span className="sidebar-icon">{item.icon}</span>
-            {item.label}
-          </button>
-        ))}
+      <hr className="sidebar-divider" />
 
-        <hr className="sidebar-divider" />
-        <div className="sidebar-section-label">Season Stats</div>
-        <div className="sidebar-stats">
-          <div className="sidebar-stat">
-            <span className="sidebar-stat-label">Studies</span>
-            <span className="sidebar-stat-val">{published}</span>
+      {loaded && (
+        <div className="sidebar-footer">
+          <div className="sidebar-section" style={{ padding: "0 0 10px" }}>Season Stats</div>
+          <div className="sidebar-stats-grid">
+            <div className="sidebar-stat-box">
+              <div className="sidebar-stat-num">{published}</div>
+              <div className="sidebar-stat-lbl">Studies</div>
+            </div>
+            <div className="sidebar-stat-box">
+              <div className={`sidebar-stat-num${avgAttend != null && avgAttend >= attendanceGoal ? " goal-met" : ""}`}>
+                {avgAttend ?? "—"}
+              </div>
+              <div className="sidebar-stat-lbl">Avg Attend</div>
+            </div>
           </div>
-          <div className="sidebar-stat">
-            <span className="sidebar-stat-label">Avg Attendance</span>
-            <span className="sidebar-stat-val" style={{ color: avgAttend != null && avgAttend >= attendanceGoal ? "#7fd6a0" : undefined }}>
-              {avgAttend ?? "—"}
-            </span>
-          </div>
-          <div className="sidebar-stat">
-            <span className="sidebar-stat-label">Student Goal</span>
+          <div className="goal-row">
+            <span className="goal-label">Student goal</span>
             {editingGoal ? (
               <form onSubmit={(e) => { e.preventDefault(); saveGoal(); }} style={{ margin: 0 }}>
-                <input autoFocus type="number" value={goalInput} onChange={(e) => setGoalInput(e.target.value)} onBlur={saveGoal} className="sidebar-goal-input" />
+                <input autoFocus type="number" value={goalInput} onChange={(e) => setGoalInput(e.target.value)} onBlur={saveGoal} className="goal-input" />
               </form>
             ) : (
-              <span className="sidebar-stat-val goal-edit" onClick={() => setEditingGoal(true)}>
-                {attendanceGoal} <span style={{ fontSize: 10, opacity: 0.6 }}>✎</span>
+              <span className="goal-val" onClick={() => setEditingGoal(true)}>
+                {attendanceGoal} <span style={{ fontSize: 11, opacity: 0.5 }}>✎</span>
               </span>
             )}
           </div>
-          <div className="sidebar-stat">
-            <span className="sidebar-stat-label">Season</span>
-            <span className="sidebar-stat-val">2025–26</span>
-          </div>
+          <button className="dark-toggle" onClick={() => setDark(d => !d)}>
+            {dark ? "☀️" : "🌙"} {dark ? "Light Mode" : "Dark Mode"}
+          </button>
+          <a href="/student" target="_blank" className="student-link">📱 Student View ↗</a>
         </div>
+      )}
+    </aside>
+  );
 
-        <button className="dark-toggle" onClick={() => setDark((d) => !d)}>
-          {dark ? "☀️" : "🌙"} {dark ? "Light Mode" : "Dark Mode"}
-        </button>
+  return (
+    <div className="app-layout">
+      {/* Overlay closes sidebar on mobile */}
+      <div className={`sidebar-overlay${sidebarOpen ? " open" : ""}`} onClick={() => setSidebarOpen(false)} />
 
-        <div style={{ padding: "8px 20px 20px" }}>
-          <a href="/student" target="_blank" style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", textDecoration: "none", display: "block" }}>
-            📱 Student View ↗
-          </a>
-        </div>
-      </aside>
+      {Sidebar}
 
-      {/* ── Main ── */}
       <div className="main-content">
+        {/* Mobile header */}
+        <div className="mobile-header">
+          <button className="hamburger" onClick={() => setSidebarOpen(o => !o)}>☰</button>
+          <span className="mobile-title">{TITLES[tab]}</span>
+          {isGrid && (
+            <button className="mobile-search-btn" onClick={() => setShowSearch(s => !s)}>🔍</button>
+          )}
+        </div>
+
+        {/* Mobile search */}
+        {isGrid && showSearch && (
+          <div className="mobile-search-bar">
+            <input autoFocus className="search-input" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search studies, verses, topics..." />
+          </div>
+        )}
+
+        {/* Desktop header */}
         <div className="content-header">
-          <div className="content-title">{SECTION_TITLES[tab]}</div>
-          {showGrid && (
-            <div className="content-search">
+          <div className="content-title">{TITLES[tab]}</div>
+          {isGrid && (
+            <div className="search-wrap-desktop">
               <input className="search-input" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search studies, verses, topics..." />
             </div>
           )}
         </div>
 
         <div className="content-body">
-          {showGrid && (
+          {isGrid && (
             <StudyGrid studies={allStudies} userData={userData} tab={tab as "all"|"liked"|"drafts"|"series"} search={search} onOpen={setOpenStudyId} onToggleLike={toggleLike} />
           )}
           {tab === "topics" && <TopicIdeas onCreateDraft={handleCreateDraft} />}
@@ -261,20 +270,15 @@ export default function Home() {
         </div>
       </div>
 
-      {/* ── Bottom nav (mobile) ── */}
-      <nav className="bottom-nav">
-        <div className="bottom-nav-inner">
-          {BOTTOM_NAV.map((item) => (
-            <button key={item.id} className={`bottom-nav-item${tab === item.id ? " active" : ""}`} onClick={() => changeTab(item.id)}>
-              <span className="bn-icon">{item.icon}</span>
-              {item.label}
-            </button>
-          ))}
-        </div>
-      </nav>
+      {/* FAB — mobile only, always accessible */}
+      <button className="fab" onClick={() => changeTab("create")}>
+        ✏️ Create
+      </button>
 
       {openStudy && (
-        <StudyModal study={openStudy} userData={userData} onClose={() => setOpenStudyId(null)} onSaveNotes={handleSaveNotes} onSaveAttend={handleSaveAttend} onDeleteDraft={handleDeleteDraft} onDeleteStudy={handleDeleteStudy} onToast={showToast} />
+        <StudyModal study={openStudy} userData={userData} onClose={() => setOpenStudyId(null)}
+          onSaveNotes={handleSaveNotes} onSaveAttend={handleSaveAttend}
+          onDeleteDraft={handleDeleteDraft} onDeleteStudy={handleDeleteStudy} onToast={showToast} />
       )}
       {toast && <Toast message={toast} onDone={() => setToast(null)} />}
     </div>
