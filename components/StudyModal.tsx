@@ -9,6 +9,7 @@ interface StudyModalProps {
   onSaveNotes: (id: string | number, notes: string) => void;
   onSaveAttend: (id: string | number, count: number) => void;
   onDeleteDraft: (id: string | number) => void;
+  onDeleteStudy: (id: string | number) => void;
   onToast: (msg: string) => void;
 }
 
@@ -19,6 +20,7 @@ export default function StudyModal({
   onSaveNotes,
   onSaveAttend,
   onDeleteDraft,
+  onDeleteStudy,
   onToast,
 }: StudyModalProps) {
   const sid = String(study.id);
@@ -296,23 +298,24 @@ h1{font-size:22px;text-align:center;margin-bottom:4px}.th{font-size:13px;text-al
             </>
           )}
 
-          {/* Delete draft */}
-          {study.draft && (
-            <>
-              <hr className="divider" />
-              <button
-                className="btn btn-danger"
-                onClick={() => {
-                  if (confirm("Delete this draft?")) {
-                    onDeleteDraft(study.id);
-                    onClose();
-                  }
-                }}
-              >
-                🗑 Delete This Draft
-              </button>
-            </>
-          )}
+          {/* Delete — available on all studies */}
+          <hr className="divider" />
+          <button
+            className="btn btn-danger"
+            onClick={() => {
+              const label = study.draft ? "draft" : "study";
+              if (confirm(`Remove this ${label}? This cannot be undone.`)) {
+                if (study.draft) {
+                  onDeleteDraft(study.id);
+                } else {
+                  onDeleteStudy(study.id);
+                }
+                onClose();
+              }
+            }}
+          >
+            🗑 {study.draft ? "Delete Draft" : "Remove Study"}
+          </button>
         </div>
       </div>
     </div>

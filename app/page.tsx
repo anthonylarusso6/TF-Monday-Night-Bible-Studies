@@ -13,13 +13,15 @@ import Toast from "@/components/Toast";
 
 type Tab = "all" | "liked" | "drafts" | "series" | "topics" | "create" | "chart";
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: "all", label: "All Studies" },
+const ROW1: { id: Tab; label: string }[] = [
+  { id: "all", label: "📖 All" },
   { id: "liked", label: "❤️ Liked" },
   { id: "drafts", label: "📝 Drafts" },
   { id: "series", label: "📚 Series" },
-  { id: "topics", label: "💡 Topic Ideas" },
-  { id: "create", label: "✏️ Create Study" },
+];
+const ROW2: { id: Tab; label: string }[] = [
+  { id: "topics", label: "💡 Topics" },
+  { id: "create", label: "✏️ Create" },
   { id: "chart", label: "📊 Attendance" },
 ];
 
@@ -30,6 +32,7 @@ export default function Home() {
   const [search, setSearch] = useState("");
   const [userData, setUserData] = useState<UserData>({ liked: {}, notes: {}, attendance: {}, drafts: [] });
   const [generatedStudies, setGeneratedStudies] = useState<Study[]>([]);
+  const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
   const [openStudyId, setOpenStudyId] = useState<string | number | null>(null);
   const [dark, setDark] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -38,24 +41,26 @@ export default function Home() {
   const [editingGoal, setEditingGoal] = useState(false);
   const [goalInput, setGoalInput] = useState("20");
 
-  // Load user data + preferences from localStorage/Supabase
   useEffect(() => {
     const savedDark = localStorage.getItem("tf_dark") === "true";
     const savedGoal = parseInt(localStorage.getItem("tf_goal") || "20");
+    const savedGenerated: Study[] = JSON.parse(localStorage.getItem("tf_generated") || "[]");
+    const savedHidden: string[] = JSON.parse(localStorage.getItem("tf_hidden") || "[]");
+
     setDark(savedDark);
     setAttendanceGoal(savedGoal);
     setGoalInput(String(savedGoal));
+    setGeneratedStudies(savedGenerated);
+    setHiddenIds(new Set(savedHidden));
     loadUserData().then((data) => { setUserData(data); setLoaded(true); });
   }, []);
 
-  // Register service worker
   useEffect(() => {
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("/sw.js").catch(() => {});
     }
   }, []);
 
-  // Dark mode sync + persist
   useEffect(() => {
     document.body.classList.toggle("dark", dark);
     localStorage.setItem("tf_dark", String(dark));
@@ -70,10 +75,10 @@ export default function Home() {
     ...generatedStudies,
     ...STUDIES,
     ...userData.drafts,
-  ];
+  ].filter((s) => !hiddenIds.has(String(s.id)));
 
   const openStudy = openStudyId != null
-    ? allStudies.find((s) => String(s.id) === String(openStudyId)) ?? null
+    ? [...generatedStudies, ...STUDIES, ...userData.drafts].find((s) => String(s.id) === String(openStudyId)) ?? null
     : null;
 
   async function toggleLike(id: string | number) {
@@ -114,8 +119,24 @@ export default function Home() {
     showToast("Draft deleted.");
   }
 
+  function handleDeleteStudy(id: string | number) {
+    const sid = String(id);
+    // Generated study — remove from localStorage
+    const updatedGenerated = generatedStudies.filter((s) => String(s.id) !== sid);
+    setGeneratedStudies(updatedGenerated);
+    localStorage.setItem("tf_generated", JSON.stringify(updatedGenerated));
+    // Also hide it (covers hardcoded studies)
+    const nextHidden = new Set(hiddenIds);
+    nextHidden.add(sid);
+    setHiddenIds(nextHidden);
+    localStorage.setItem("tf_hidden", JSON.stringify([...nextHidden]));
+    showToast("Study removed.");
+  }
+
   function handleStudyCreated(study: Study) {
-    setGeneratedStudies((prev) => [study, ...prev]);
+    const updated = [study, ...generatedStudies];
+    setGeneratedStudies(updated);
+    localStorage.setItem("tf_generated", JSON.stringify(updated));
     setTab("all");
   }
 
@@ -131,6 +152,8 @@ export default function Home() {
   }
 
   const showGrid = GRID_TABS.has(tab);
+
+  function changeTab(t: Tab) { setTab(t); setSearch(""); setOpenStudyId(null); }
 
   return (
     <>
@@ -158,12 +181,26 @@ export default function Home() {
         />
       )}
 
+      {/* Two-row tab nav */}
       <nav className="tab-nav" role="tablist">
-        {TABS.map((t) => (
+        {ROW1.map((t) => (
           <button
             key={t.id}
             className={`tab-btn${tab === t.id ? " active" : ""}`}
-            onClick={() => { setTab(t.id); setSearch(""); }}
+            onClick={() => changeTab(t.id)}
+            role="tab"
+            aria-selected={tab === t.id}
+          >
+            {t.label}
+          </button>
+        ))}
+      </nav>
+      <nav className="tab-nav-row2" role="tablist">
+        {ROW2.map((t) => (
+          <button
+            key={t.id}
+            className={`tab-btn${tab === t.id ? " active" : ""}`}
+            onClick={() => changeTab(t.id)}
             role="tab"
             aria-selected={tab === t.id}
           >
@@ -218,6 +255,7 @@ export default function Home() {
           onSaveNotes={handleSaveNotes}
           onSaveAttend={handleSaveAttend}
           onDeleteDraft={handleDeleteDraft}
+          onDeleteStudy={handleDeleteStudy}
           onToast={showToast}
         />
       )}
