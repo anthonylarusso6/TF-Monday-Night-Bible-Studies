@@ -1,6 +1,21 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
-  <rect width="192" height="192" rx="36" fill="#0f4f6a"/>
-  <text x="96" y="82" font-family="Arial, sans-serif" font-weight="900" font-size="52" text-anchor="middle" fill="white" letter-spacing="2">TF</text>
-  <text x="96" y="118" font-family="Arial, sans-serif" font-weight="600" font-size="18" text-anchor="middle" fill="rgba(255,255,255,0.8)" letter-spacing="1">BIBLE</text>
-  <text x="96" y="140" font-family="Arial, sans-serif" font-weight="600" font-size="18" text-anchor="middle" fill="rgba(255,255,255,0.8)" letter-spacing="1">STUDY'S</text>
+  <defs>
+    <path id="topArc192" d="M 17,96 A 79,79 0 0,1 175,96"/>
+  </defs>
+  <rect width="192" height="192" rx="40" fill="#0a3a52"/>
+  <circle cx="96" cy="96" r="88" fill="none" stroke="#d4a843" stroke-width="2.5"/>
+  <circle cx="96" cy="96" r="74" fill="none" stroke="#d4a843" stroke-width="0.75" opacity="0.4"/>
+  <polygon points="4,96 11,89 18,96 11,103" fill="#d4a843"/>
+  <polygon points="188,96 181,89 174,96 181,103" fill="#d4a843"/>
+  <text fill="#d4a843" font-family="Arial, Helvetica, sans-serif" font-weight="800" font-size="13" letter-spacing="5">
+    <textPath href="#topArc192" startOffset="50%" text-anchor="middle">TRIPLE  F</textPath>
+  </text>
+  <line x1="96" y1="37" x2="96" y2="52" stroke="#d4a843" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="88" y1="44" x2="104" y2="44" stroke="#d4a843" stroke-width="2.5" stroke-linecap="round"/>
+  <circle cx="96" cy="44" r="11" fill="none" stroke="#d4a843" stroke-width="0.75" opacity="0.5"/>
+  <text x="96" y="120" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="64" fill="white" letter-spacing="-3">TF</text>
+  <line x1="34" y1="135" x2="158" y2="135" stroke="#d4a843" stroke-width="0.75" opacity="0.5"/>
+  <text x="96" y="150" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="10" fill="#d4a843" letter-spacing="3">BIBLE STUDY&apos;S</text>
+  <circle cx="26" cy="143" r="2" fill="#d4a843" opacity="0.7"/>
+  <circle cx="166" cy="143" r="2" fill="#d4a843" opacity="0.7"/>
 </svg>

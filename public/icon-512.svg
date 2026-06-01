@@ -1,6 +1,22 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <rect width="512" height="512" rx="96" fill="#0f4f6a"/>
-  <text x="256" y="220" font-family="Arial, sans-serif" font-weight="900" font-size="140" text-anchor="middle" fill="white" letter-spacing="4">TF</text>
-  <text x="256" y="310" font-family="Arial, sans-serif" font-weight="600" font-size="48" text-anchor="middle" fill="rgba(255,255,255,0.8)" letter-spacing="3">BIBLE</text>
-  <text x="256" y="370" font-family="Arial, sans-serif" font-weight="600" font-size="48" text-anchor="middle" fill="rgba(255,255,255,0.8)" letter-spacing="3">STUDY'S</text>
+  <defs>
+    <path id="topArc512" d="M 46,256 A 210,210 0 0,1 466,256"/>
+  </defs>
+  <rect width="512" height="512" rx="110" fill="#0a3a52"/>
+  <circle cx="256" cy="256" r="234" fill="none" stroke="#d4a843" stroke-width="6"/>
+  <circle cx="256" cy="256" r="196" fill="none" stroke="#d4a843" stroke-width="2" opacity="0.4"/>
+  <polygon points="10,256 26,238 42,256 26,274" fill="#d4a843"/>
+  <polygon points="502,256 486,238 470,256 486,274" fill="#d4a843"/>
+  <text fill="#d4a843" font-family="Arial, Helvetica, sans-serif" font-weight="800" font-size="34" letter-spacing="16">
+    <textPath href="#topArc512" startOffset="50%" text-anchor="middle">TRIPLE  F</textPath>
+  </text>
+  <line x1="256" y1="96" x2="256" y2="136" stroke="#d4a843" stroke-width="6" stroke-linecap="round"/>
+  <line x1="232" y1="116" x2="280" y2="116" stroke="#d4a843" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="256" cy="116" r="30" fill="none" stroke="#d4a843" stroke-width="2" opacity="0.5"/>
+  <text x="256" y="322" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="170" fill="white" letter-spacing="-8">TF</text>
+  <line x1="88" y1="360" x2="424" y2="360" stroke="#d4a843" stroke-width="2" opacity="0.5"/>
+  <text x="256" y="398" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="28" fill="#d4a843" letter-spacing="8">BIBLE STUDY&apos;S</text>
+  <circle cx="68" cy="380" r="6" fill="#d4a843" opacity="0.7"/>
+  <circle cx="444" cy="380" r="6" fill="#d4a843" opacity="0.7"/>
+  <text x="256" y="434" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="600" font-size="20" fill="rgba(255,255,255,0.3)" letter-spacing="5">KNOXVILLE · TN</text>
 </svg>
