@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 240">
+  <!-- White T left wing -->
+  <polygon points="0,58 88,10 106,36 106,62 16,76" fill="white"/>
+
+  <!-- Gray F/T right wing -->
+  <polygon points="114,10 220,58 204,76 114,62 114,36" fill="#b0b8c4"/>
+
+  <!-- White left face of vertical bar -->
+  <polygon points="88,30 110,30 110,218 88,196" fill="white"/>
+
+  <!-- Gray right face of vertical bar (3D depth) -->
+  <polygon points="110,30 132,30 110,218" fill="#b0b8c4"/>
+
+  <!-- F top horizontal bar (gray) - inside crossbar zone -->
+  <polygon points="110,40 186,40 181,58 110,58" fill="#9aa4b0"/>
+
+  <!-- F bottom horizontal bar (gray) -->
+  <polygon points="110,122 172,122 167,140 110,140" fill="#9aa4b0"/>
+
+  <!-- Black separator lines (depth effect) -->
+  <!-- Center vertical divide -->
+  <line x1="110" y1="28" x2="110" y2="220" stroke="#111" stroke-width="3"/>
+
+  <!-- Outline the whole shape -->
+  <!-- T left wing outline -->
+  <polygon points="0,58 88,10 106,36 106,62 16,76"
+           fill="none" stroke="#111" stroke-width="3.5" stroke-linejoin="round"/>
+  <!-- T right wing / F top area outline -->
+  <polygon points="114,10 220,58 204,76 114,62 114,36"
+           fill="none" stroke="#111" stroke-width="3.5" stroke-linejoin="round"/>
+  <!-- Vertical bar outline -->
+  <polygon points="88,28 132,28 110,220 88,196"
+           fill="none" stroke="#111" stroke-width="3.5" stroke-linejoin="round"/>
+  <!-- F top bar outline -->
+  <polygon points="110,40 186,40 181,58 110,58"
+           fill="none" stroke="#111" stroke-width="2.5" stroke-linejoin="round"/>
+  <!-- F bottom bar outline -->
+  <polygon points="110,122 172,122 167,140 110,140"
+           fill="none" stroke="#111" stroke-width="2.5" stroke-linejoin="round"/>
+</svg>

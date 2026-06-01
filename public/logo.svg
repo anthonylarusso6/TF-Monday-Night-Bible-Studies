@@ -1,17 +1,20 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
   <defs>
     <path id="topArc" d="M 18,100 A 82,82 0 0,1 182,100"/>
-    <path id="botArc" d="M 30,138 A 82,82 0 0,0 170,138"/>
+    <!-- Clip to circle interior -->
+    <clipPath id="circleClip">
+      <circle cx="100" cy="100" r="77"/>
+    </clipPath>
   </defs>
 
-  <!-- Background -->
+  <!-- Badge background -->
   <circle cx="100" cy="100" r="100" fill="#0a3a52"/>
 
-  <!-- Outer gold ring -->
+  <!-- Gold outer ring -->
   <circle cx="100" cy="100" r="93" fill="none" stroke="#d4a843" stroke-width="2.5"/>
 
   <!-- Inner thin ring -->
-  <circle cx="100" cy="100" r="78" fill="none" stroke="#d4a843" stroke-width="0.75" opacity="0.45"/>
+  <circle cx="100" cy="100" r="78" fill="none" stroke="#d4a843" stroke-width="0.75" opacity="0.4"/>
 
   <!-- Diamond accents at 3 and 9 o'clock -->
   <polygon points="5,100 12,93 19,100 12,107" fill="#d4a843"/>
@@ -22,31 +25,41 @@
     <textPath href="#topArc" startOffset="50%" text-anchor="middle">TRIPLE  F</textPath>
   </text>
 
-  <!-- Gold cross above TF -->
-  <line x1="100" y1="39" x2="100" y2="56" stroke="#d4a843" stroke-width="2.5" stroke-linecap="round"/>
-  <line x1="91"  y1="47" x2="109" y2="47" stroke="#d4a843" stroke-width="2.5" stroke-linecap="round"/>
-  <!-- Small circle around cross -->
-  <circle cx="100" cy="47" r="12" fill="none" stroke="#d4a843" stroke-width="0.75" opacity="0.5"/>
-
-  <!-- TF letters -->
-  <text x="100" y="125" text-anchor="middle"
-        font-family="Arial Black, Arial, sans-serif"
-        font-weight="900" font-size="68" fill="white" letter-spacing="-3">TF</text>
-
-  <!-- Thin gold line above bottom text -->
-  <line x1="36" y1="140" x2="164" y2="140" stroke="#d4a843" stroke-width="0.75" opacity="0.5"/>
+  <!-- TF logo mark, scaled and centered inside the badge -->
+  <g transform="translate(34, 46) scale(0.6)" clip-path="url(#circleClip)">
+    <!-- White T left wing -->
+    <polygon points="0,58 88,10 106,36 106,62 16,76" fill="white"/>
+    <!-- Gray F/T right wing -->
+    <polygon points="114,10 220,58 204,76 114,62 114,36" fill="#b0b8c4"/>
+    <!-- White left face of vertical bar -->
+    <polygon points="88,30 110,30 110,218 88,196" fill="white"/>
+    <!-- Gray right face of vertical bar -->
+    <polygon points="110,30 132,30 110,218" fill="#b0b8c4"/>
+    <!-- F top horizontal bar -->
+    <polygon points="110,40 186,40 181,58 110,58" fill="#9aa4b0"/>
+    <!-- F bottom horizontal bar -->
+    <polygon points="110,122 172,122 167,140 110,140" fill="#9aa4b0"/>
+    <!-- Center divide line -->
+    <line x1="110" y1="28" x2="110" y2="220" stroke="#0a3a52" stroke-width="3.5"/>
+    <!-- Outlines -->
+    <polygon points="0,58 88,10 106,36 106,62 16,76" fill="none" stroke="#0a3a52" stroke-width="4" stroke-linejoin="round"/>
+    <polygon points="114,10 220,58 204,76 114,62 114,36" fill="none" stroke="#0a3a52" stroke-width="4" stroke-linejoin="round"/>
+    <polygon points="88,28 132,28 110,220 88,196" fill="none" stroke="#0a3a52" stroke-width="4" stroke-linejoin="round"/>
+    <polygon points="110,40 186,40 181,58 110,58" fill="none" stroke="#0a3a52" stroke-width="3" stroke-linejoin="round"/>
+    <polygon points="110,122 172,122 167,140 110,140" fill="none" stroke="#0a3a52" stroke-width="3" stroke-linejoin="round"/>
+  </g>
 
   <!-- BIBLE STUDY'S bottom text -->
-  <text x="100" y="156" text-anchor="middle"
+  <text x="100" y="163" text-anchor="middle"
         font-family="Arial, Helvetica, sans-serif"
-        font-weight="700" font-size="10.5" fill="#d4a843" letter-spacing="3">BIBLE STUDY&apos;S</text>
+        font-weight="700" font-size="10" fill="#d4a843" letter-spacing="3">BIBLE STUDY&apos;S</text>
 
-  <!-- Bottom dot accents -->
-  <circle cx="28"  cy="148" r="2.5" fill="#d4a843" opacity="0.7"/>
-  <circle cx="172" cy="148" r="2.5" fill="#d4a843" opacity="0.7"/>
+  <!-- Flanking dots -->
+  <circle cx="28" cy="156" r="2" fill="#d4a843" opacity="0.7"/>
+  <circle cx="172" cy="156" r="2" fill="#d4a843" opacity="0.7"/>
 
-  <!-- Knoxville TN small text -->
-  <text x="100" y="170" text-anchor="middle"
+  <!-- Knoxville TN -->
+  <text x="100" y="174" text-anchor="middle"
         font-family="Arial, Helvetica, sans-serif"
-        font-weight="600" font-size="8" fill="rgba(255,255,255,0.35)" letter-spacing="2">KNOXVILLE · TN</text>
+        font-weight="600" font-size="7.5" fill="rgba(255,255,255,0.3)" letter-spacing="2">KNOXVILLE · TN</text>
 </svg>

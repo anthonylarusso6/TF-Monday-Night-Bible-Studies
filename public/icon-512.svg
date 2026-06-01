@@ -1,6 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <defs>
     <path id="topArc512" d="M 46,256 A 210,210 0 0,1 466,256"/>
+    <clipPath id="cc512"><circle cx="256" cy="256" r="194"/></clipPath>
   </defs>
   <rect width="512" height="512" rx="110" fill="#0a3a52"/>
   <circle cx="256" cy="256" r="234" fill="none" stroke="#d4a843" stroke-width="6"/>
@@ -10,13 +11,22 @@
   <text fill="#d4a843" font-family="Arial, Helvetica, sans-serif" font-weight="800" font-size="34" letter-spacing="16">
     <textPath href="#topArc512" startOffset="50%" text-anchor="middle">TRIPLE  F</textPath>
   </text>
-  <line x1="256" y1="96" x2="256" y2="136" stroke="#d4a843" stroke-width="6" stroke-linecap="round"/>
-  <line x1="232" y1="116" x2="280" y2="116" stroke="#d4a843" stroke-width="6" stroke-linecap="round"/>
-  <circle cx="256" cy="116" r="30" fill="none" stroke="#d4a843" stroke-width="2" opacity="0.5"/>
-  <text x="256" y="322" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="170" fill="white" letter-spacing="-8">TF</text>
-  <line x1="88" y1="360" x2="424" y2="360" stroke="#d4a843" stroke-width="2" opacity="0.5"/>
-  <text x="256" y="398" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="28" fill="#d4a843" letter-spacing="8">BIBLE STUDY&apos;S</text>
-  <circle cx="68" cy="380" r="6" fill="#d4a843" opacity="0.7"/>
-  <circle cx="444" cy="380" r="6" fill="#d4a843" opacity="0.7"/>
-  <text x="256" y="434" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="600" font-size="20" fill="rgba(255,255,255,0.3)" letter-spacing="5">KNOXVILLE · TN</text>
+  <g transform="translate(78, 108) scale(1.62)" clip-path="url(#cc512)">
+    <polygon points="0,58 88,10 106,36 106,62 16,76" fill="white"/>
+    <polygon points="114,10 220,58 204,76 114,62 114,36" fill="#b0b8c4"/>
+    <polygon points="88,30 110,30 110,218 88,196" fill="white"/>
+    <polygon points="110,30 132,30 110,218" fill="#b0b8c4"/>
+    <polygon points="110,40 186,40 181,58 110,58" fill="#9aa4b0"/>
+    <polygon points="110,122 172,122 167,140 110,140" fill="#9aa4b0"/>
+    <line x1="110" y1="28" x2="110" y2="220" stroke="#0a3a52" stroke-width="3"/>
+    <polygon points="0,58 88,10 106,36 106,62 16,76" fill="none" stroke="#0a3a52" stroke-width="3.5" stroke-linejoin="round"/>
+    <polygon points="114,10 220,58 204,76 114,62 114,36" fill="none" stroke="#0a3a52" stroke-width="3.5" stroke-linejoin="round"/>
+    <polygon points="88,28 132,28 110,220 88,196" fill="none" stroke="#0a3a52" stroke-width="3.5" stroke-linejoin="round"/>
+    <polygon points="110,40 186,40 181,58 110,58" fill="none" stroke="#0a3a52" stroke-width="2.5" stroke-linejoin="round"/>
+    <polygon points="110,122 172,122 167,140 110,140" fill="none" stroke="#0a3a52" stroke-width="2.5" stroke-linejoin="round"/>
+  </g>
+  <text x="256" y="418" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="26" fill="#d4a843" letter-spacing="8">BIBLE STUDY&apos;S</text>
+  <circle cx="68" cy="408" r="5" fill="#d4a843" opacity="0.7"/>
+  <circle cx="444" cy="408" r="5" fill="#d4a843" opacity="0.7"/>
+  <text x="256" y="448" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="600" font-size="18" fill="rgba(255,255,255,0.25)" letter-spacing="5">KNOXVILLE · TN</text>
 </svg>
