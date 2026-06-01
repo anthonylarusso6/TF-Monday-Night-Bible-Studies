@@ -15,9 +15,9 @@ export default function StudyCard({ study, userData, onOpen, onToggleLike }: Stu
   return (
     <div
       className={`card${study.draft ? " draft" : ""}`}
+      data-series={study.series || undefined}
       onClick={() => onOpen(study.id)}
     >
-      {study.draft && <div className="card-draft-badge">Draft</div>}
       <button
         className="card-like"
         onClick={(e) => { e.stopPropagation(); onToggleLike(study.id); }}
@@ -25,14 +25,23 @@ export default function StudyCard({ study, userData, onOpen, onToggleLike }: Stu
       >
         {liked ? "❤️" : "🤍"}
       </button>
-      <div className="card-date">{study.date}</div>
-      {study.series && <div className="card-series">📖 {study.series}</div>}
+
+      <div className="card-top">
+        <span className="card-date">{study.date}</span>
+        {study.draft && <span className="card-draft-badge">Draft</span>}
+        {!study.draft && study.series && (
+          <span className="card-series-badge">{study.series}</span>
+        )}
+      </div>
+
       <div className="card-title">{study.title}</div>
+
       {study.anchor?.ref && (
         <div className="card-verse">
-          {study.anchor.ref} — {study.anchor.text.substring(0, 65)}...
+          {study.anchor.ref} — {study.anchor.text.substring(0, 70)}...
         </div>
       )}
+
       {attend ? <div className="card-attend">👥 {attend} students</div> : null}
     </div>
   );
