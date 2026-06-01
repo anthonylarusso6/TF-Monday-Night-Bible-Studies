@@ -1,6 +1,7 @@
 "use client";
 import { useRef, useState, useEffect } from "react";
 import { Study, UserData } from "@/lib/types";
+import { generateLeaderPDF, generateStudentPDF } from "@/lib/generatePDF";
 
 interface StudyModalProps {
   study: Study;
@@ -270,9 +271,16 @@ h1{font-size:22px;text-align:center;margin-bottom:4px}.th{font-size:13px;text-al
               <hr className="divider" />
               <div className="divider-label">Student Tools</div>
               <div className="btn-row">
-                <button className="btn btn-primary" onClick={doDownload}>⬇ Download Student Page</button>
-                <button className="btn btn-outline" onClick={() => window.print()}>🖨 Print Leader Guide</button>
-                <button className="btn btn-outline" onClick={doCopyFull}>📋 Copy Full Study</button>
+                <button className="btn btn-primary" onClick={() => {
+                  const attend = userData.attendance[sid];
+                  generateLeaderPDF(study, notes, attend);
+                  onToast("Leader guide PDF downloaded!");
+                }}>📄 Download Leader PDF</button>
+                <button className="btn btn-outline" onClick={() => {
+                  generateStudentPDF(study);
+                  onToast("Student handout PDF downloaded!");
+                }}>📋 Download Student PDF</button>
+                <button className="btn btn-outline" onClick={doCopyFull}>📎 Copy Full Study</button>
                 <button className="btn btn-outline" onClick={() => socialRef.current?.scrollIntoView({ behavior: "smooth" })}>
                   📱 Social Card
                 </button>
