@@ -15,7 +15,8 @@ export default function StudentPage() {
   return (
     <div style={{ minHeight: "100vh", background: "#e8f4f9", fontFamily: "Georgia, serif" }}>
       {/* Header */}
-      <header style={{ background: "#0f4f6a", color: "white", textAlign: "center", padding: "20px 16px 16px" }}>
+      <header style={{ background: "#0f4f6a", color: "white", textAlign: "center", padding: "20px 16px 16px", position: "relative" }}>
+        <a href="/" style={{ position: "absolute", top: 14, left: 14, background: "rgba(255,255,255,0.12)", color: "white", textDecoration: "none", fontSize: 12, fontFamily: "Arial, sans-serif", fontWeight: 700, padding: "6px 12px", borderRadius: 8 }}>← Leader</a>
         <div style={{ fontWeight: 900, fontSize: 24, letterSpacing: 2, fontFamily: "Arial, sans-serif" }}>TRIPLE F</div>
         <h1 style={{ fontSize: 18, fontWeight: 700, margin: "4px 0 2px" }}>Monday Night Bible Study&apos;s</h1>
         <p style={{ fontSize: 12, opacity: 0.75, fontFamily: "Arial, sans-serif" }}>Student Study Library</p>
