@@ -7,10 +7,10 @@ interface StudyModalProps {
   study: Study;
   userData: UserData;
   onClose: () => void;
-  onSaveNotes: (id: string | number, notes: string) => void;
-  onSaveAttend: (id: string | number, count: number) => void;
-  onDeleteDraft: (id: string | number) => void;
-  onDeleteStudy: (id: string | number) => void;
+  onSaveNotes: (id: string | number, notes: string) => Promise<void>;
+  onSaveAttend: (id: string | number, count: number) => Promise<void>;
+  onDeleteDraft: (id: string | number) => Promise<void>;
+  onDeleteStudy: (id: string | number) => Promise<void>;
   onToast: (msg: string) => void;
 }
 
@@ -231,7 +231,7 @@ h1{font-size:22px;text-align:center;margin-bottom:4px}.th{font-size:13px;text-al
               onChange={(e) => setNotes(e.target.value)}
               placeholder="How did the session go? What hit? What to revisit..."
             />
-            <button className="save-btn" onClick={() => { onSaveNotes(study.id, notes); onToast("Notes saved!"); }}>
+            <button className="save-btn" onClick={async () => { await onSaveNotes(study.id, notes); onToast("Notes saved!"); }}>
               Save Notes
             </button>
           </div>
@@ -250,9 +250,9 @@ h1{font-size:22px;text-align:center;margin-bottom:4px}.th{font-size:13px;text-al
               />
               <button
                 className="save-btn"
-                onClick={() => {
+                onClick={async () => {
                   if (attend) {
-                    onSaveAttend(study.id, parseInt(attend));
+                    await onSaveAttend(study.id, parseInt(attend));
                     onToast(`Attendance saved — ${attend} students!`);
                   }
                 }}

@@ -135,6 +135,16 @@ Now write the complete study on "${topic}" and return ONLY valid JSON (no markdo
       }
     }
 
+    const requiredArrays = ["sup", "bd", "sbd", "qs", "tk"] as const;
+    for (const field of requiredArrays) {
+      if (!Array.isArray(studyData[field])) {
+        throw new Error(`Invalid AI response: "${field}" must be an array`);
+      }
+    }
+    if (!studyData.title || !studyData.bi || !studyData.anchor?.ref || !studyData.anchor?.text) {
+      throw new Error("Invalid AI response: missing required fields (title, bi, anchor)");
+    }
+
     const study = {
       id: Date.now(),
       date: new Date().toLocaleDateString("en-US", {

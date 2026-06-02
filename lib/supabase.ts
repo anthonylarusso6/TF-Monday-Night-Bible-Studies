@@ -1,9 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
 import { UserData } from "./types";
 
-const SUPABASE_URL = "https://plmmfyseqrxalujgdibz.supabase.co";
-const SUPABASE_ANON_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsbW1meXNlcXJ4YWx1amdkaWJ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3NzQxMDksImV4cCI6MjA5MjM1MDEwOX0.x3IaFzm26PFXwZxx7ldbUQwyFoxM4FZ43acVO6dF0_o";
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://plmmfyseqrxalujgdibz.supabase.co";
+const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsbW1meXNlcXJ4YWx1amdkaWJ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3NzQxMDksImV4cCI6MjA5MjM1MDEwOX0.x3IaFzm26PFXwZxx7ldbUQwyFoxM4FZ43acVO6dF0_o";
 
 export const USER_ID = "anthony-tf-mnbs";
 const LS_KEY = "tf_userdata_backup";

@@ -1,8 +1,7 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
-import { STUDIES } from "@/lib/studies";
-import { loadUserData, saveUserData } from "@/lib/supabase";
-import { Study, UserData } from "@/lib/types";
+import { useEffect, useState } from "react";
+import { Study } from "@/lib/types";
+import { useStudyData } from "@/lib/useStudyData";
 import StudyGrid from "@/components/StudyGrid";
 import StudyModal from "@/components/StudyModal";
 import TopicIdeas from "@/components/TopicIdeas";
@@ -34,46 +33,28 @@ export default function Home() {
   const [search, setSearch] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
-  const [userData, setUserData] = useState<UserData>({ liked: {}, notes: {}, attendance: {}, drafts: [] });
-  const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
   const [openStudyId, setOpenStudyId] = useState<string | number | null>(null);
   const [dark, setDark] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
-  const [loaded, setLoaded] = useState(false);
   const [attendanceGoal, setAttendanceGoal] = useState(20);
   const [editingGoal, setEditingGoal] = useState(false);
   const [goalInput, setGoalInput] = useState("20");
 
+  function showToast(msg: string) { setToast(msg); }
+  function changeTab(t: Tab) {
+    setTab(t); setSearch(""); setOpenStudyId(null); setSidebarOpen(false); setShowSearch(false);
+  }
+
+  const {
+    userData, allStudies, getStudy, stats, loaded,
+    toggleLike, saveNotes, saveAttend, createDraft, deleteDraft, deleteStudy, studyCreated,
+  } = useStudyData(showToast);
+
   useEffect(() => {
-    const savedDark = localStorage.getItem("tf_dark") === "true";
+    setDark(localStorage.getItem("tf_dark") === "true");
     const savedGoal = parseInt(localStorage.getItem("tf_goal") || "20");
-    const savedHidden: string[] = JSON.parse(localStorage.getItem("tf_hidden") || "[]");
-    setDark(savedDark);
     setAttendanceGoal(savedGoal);
     setGoalInput(String(savedGoal));
-    setHiddenIds(new Set(savedHidden));
-
-    loadUserData().then((data) => {
-      // Migrate any previously generated studies stored in the old notes._g format
-      const rawNotes = data.notes as Record<string, string>;
-      if (rawNotes._g) {
-        try {
-          const old: Study[] = JSON.parse(rawNotes._g);
-          const { _g, ...cleanNotes } = rawNotes;
-          void _g;
-          const existingIds = new Set(data.drafts.map((d) => String(d.id)));
-          const toMerge = old.filter((s) => !existingIds.has(String(s.id)));
-          const merged = { ...data, notes: cleanNotes as Record<string, string>, drafts: [...toMerge, ...data.drafts] };
-          setUserData(merged);
-          saveUserData(merged);
-        } catch {
-          setUserData(data);
-        }
-      } else {
-        setUserData(data);
-      }
-      setLoaded(true);
-    });
   }, []);
 
   useEffect(() => {
@@ -85,86 +66,31 @@ export default function Home() {
     localStorage.setItem("tf_dark", String(dark));
   }, [dark]);
 
-  // Close sidebar on ESC
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === "Escape") setSidebarOpen(false); };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
-  const persist = useCallback(async (next: UserData) => {
-    setUserData(next);
-    await saveUserData(next);
-  }, []);
-
-  const allStudies: Study[] = [
-    ...STUDIES, ...userData.drafts,
-  ].filter((s) => !hiddenIds.has(String(s.id)));
-
-  const openStudy = openStudyId != null
-    ? [...STUDIES, ...userData.drafts].find((s) => String(s.id) === String(openStudyId)) ?? null
-    : null;
-
-  async function toggleLike(id: string | number) {
-    const sid = String(id);
-    await persist({ ...userData, liked: { ...userData.liked, [sid]: !userData.liked[sid] } });
-  }
-  async function handleSaveNotes(id: string | number, notes: string) {
-    await persist({ ...userData, notes: { ...userData.notes, [String(id)]: notes } });
-  }
-  async function handleSaveAttend(id: string | number, count: number) {
-    await persist({ ...userData, attendance: { ...userData.attendance, [String(id)]: count } });
-  }
-  async function handleCreateDraft(topic: string) {
-    const draft: Study = {
-      id: `draft_${Date.now()}`,
-      date: new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }),
-      title: topic, series: "", draft: true,
-      anchor: { ref: "", text: "" }, sup: [], bi: "Draft — build this study out.",
-      bd: [], sbd: [], qs: [], tk: [],
-    };
-    await persist({ ...userData, drafts: [draft, ...userData.drafts] });
-    changeTab("drafts");
-    showToast(`Draft created: ${topic}`);
-  }
-  async function handleDeleteDraft(id: string | number) {
-    await persist({ ...userData, drafts: userData.drafts.filter((d) => String(d.id) !== String(id)) });
-    showToast("Draft deleted.");
-  }
-  async function handleDeleteStudy(id: string | number) {
-    const sid = String(id);
-    const isGenerated = userData.drafts.some((s) => String(s.id) === sid);
-    if (isGenerated) {
-      await persist({ ...userData, drafts: userData.drafts.filter((s) => String(s.id) !== sid) });
-    } else {
-      const nextHidden = new Set(hiddenIds);
-      nextHidden.add(sid);
-      setHiddenIds(nextHidden);
-      localStorage.setItem("tf_hidden", JSON.stringify([...nextHidden]));
-    }
-    showToast("Study removed.");
-  }
   async function handleStudyCreated(study: Study) {
-    await persist({ ...userData, drafts: [study, ...userData.drafts] });
+    await studyCreated(study);
     changeTab("all");
   }
 
-  function showToast(msg: string) { setToast(msg); }
-  function changeTab(t: Tab) {
-    setTab(t); setSearch(""); setOpenStudyId(null); setSidebarOpen(false); setShowSearch(false);
+  async function handleCreateDraft(topic: string) {
+    await createDraft(topic);
+    changeTab("drafts");
   }
+
+  const openStudy = openStudyId != null ? getStudy(openStudyId) : null;
+  const { published, draftCount, likedCount, avgAttend } = stats;
+  const isGrid = GRID_TABS.has(tab);
+
   function saveGoal() {
     const n = parseInt(goalInput);
     if (!isNaN(n) && n > 0) { setAttendanceGoal(n); localStorage.setItem("tf_goal", String(n)); }
     setEditingGoal(false);
   }
-
-  const published = allStudies.filter((s) => !s.draft).length;
-  const draftCount = userData.drafts.length;
-  const likedCount = Object.values(userData.liked).filter(Boolean).length;
-  const attendVals = Object.values(userData.attendance).filter(Boolean) as number[];
-  const avgAttend = attendVals.length ? Math.round(attendVals.reduce((a, b) => a + b, 0) / attendVals.length) : null;
-  const isGrid = GRID_TABS.has(tab);
 
   const Sidebar = (
     <aside className={`sidebar${sidebarOpen ? " open" : ""}`}>
@@ -287,8 +213,8 @@ export default function Home() {
 
       {openStudy && (
         <StudyModal study={openStudy} userData={userData} onClose={() => setOpenStudyId(null)}
-          onSaveNotes={handleSaveNotes} onSaveAttend={handleSaveAttend}
-          onDeleteDraft={handleDeleteDraft} onDeleteStudy={handleDeleteStudy} onToast={showToast} />
+          onSaveNotes={saveNotes} onSaveAttend={saveAttend}
+          onDeleteDraft={deleteDraft} onDeleteStudy={deleteStudy} onToast={showToast} />
       )}
       {toast && <Toast message={toast} onDone={() => setToast(null)} />}
     </div>
