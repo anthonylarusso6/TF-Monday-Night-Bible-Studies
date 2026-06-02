@@ -35,7 +35,6 @@ export default function Home() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [userData, setUserData] = useState<UserData>({ liked: {}, notes: {}, attendance: {}, drafts: [] });
-  const [generatedStudies, setGeneratedStudies] = useState<Study[]>([]);
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
   const [openStudyId, setOpenStudyId] = useState<string | number | null>(null);
   const [dark, setDark] = useState(false);
@@ -55,12 +54,24 @@ export default function Home() {
     setHiddenIds(new Set(savedHidden));
 
     loadUserData().then((data) => {
+      // Migrate any previously generated studies stored in the old notes._g format
       const rawNotes = data.notes as Record<string, string>;
-      const savedGenerated: Study[] = rawNotes._g ? JSON.parse(rawNotes._g) : [];
-      const { _g, ...cleanNotes } = rawNotes;
-      void _g;
-      setGeneratedStudies(savedGenerated);
-      setUserData({ ...data, notes: cleanNotes });
+      if (rawNotes._g) {
+        try {
+          const old: Study[] = JSON.parse(rawNotes._g);
+          const { _g, ...cleanNotes } = rawNotes;
+          void _g;
+          const existingIds = new Set(data.drafts.map((d) => String(d.id)));
+          const toMerge = old.filter((s) => !existingIds.has(String(s.id)));
+          const merged = { ...data, notes: cleanNotes as Record<string, string>, drafts: [...toMerge, ...data.drafts] };
+          setUserData(merged);
+          saveUserData(merged);
+        } catch {
+          setUserData(data);
+        }
+      } else {
+        setUserData(data);
+      }
       setLoaded(true);
     });
   }, []);
@@ -81,19 +92,17 @@ export default function Home() {
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
-  const persist = useCallback(async (next: UserData, generated?: Study[]) => {
-    const gen = generated ?? generatedStudies;
-    const notesWithGen = { ...next.notes, _g: JSON.stringify(gen) };
+  const persist = useCallback(async (next: UserData) => {
     setUserData(next);
-    await saveUserData({ ...next, notes: notesWithGen });
-  }, [generatedStudies]);
+    await saveUserData(next);
+  }, []);
 
   const allStudies: Study[] = [
-    ...generatedStudies, ...STUDIES, ...userData.drafts,
+    ...STUDIES, ...userData.drafts,
   ].filter((s) => !hiddenIds.has(String(s.id)));
 
   const openStudy = openStudyId != null
-    ? [...generatedStudies, ...STUDIES, ...userData.drafts].find((s) => String(s.id) === String(openStudyId)) ?? null
+    ? [...STUDIES, ...userData.drafts].find((s) => String(s.id) === String(openStudyId)) ?? null
     : null;
 
   async function toggleLike(id: string | number) {
@@ -124,19 +133,19 @@ export default function Home() {
   }
   async function handleDeleteStudy(id: string | number) {
     const sid = String(id);
-    const updatedGen = generatedStudies.filter((s) => String(s.id) !== sid);
-    setGeneratedStudies(updatedGen);
-    const nextHidden = new Set(hiddenIds);
-    nextHidden.add(sid);
-    setHiddenIds(nextHidden);
-    localStorage.setItem("tf_hidden", JSON.stringify([...nextHidden]));
-    await persist(userData, updatedGen);
+    const isGenerated = userData.drafts.some((s) => String(s.id) === sid);
+    if (isGenerated) {
+      await persist({ ...userData, drafts: userData.drafts.filter((s) => String(s.id) !== sid) });
+    } else {
+      const nextHidden = new Set(hiddenIds);
+      nextHidden.add(sid);
+      setHiddenIds(nextHidden);
+      localStorage.setItem("tf_hidden", JSON.stringify([...nextHidden]));
+    }
     showToast("Study removed.");
   }
   async function handleStudyCreated(study: Study) {
-    const updated = [study, ...generatedStudies];
-    setGeneratedStudies(updated);
-    await persist(userData, updated);
+    await persist({ ...userData, drafts: [study, ...userData.drafts] });
     changeTab("all");
   }
 
