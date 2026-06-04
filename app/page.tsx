@@ -3,14 +3,16 @@ import { useEffect, useState, useCallback } from "react";
 import { STUDIES } from "@/lib/studies";
 import { loadUserData, saveUserData } from "@/lib/supabase";
 import { Study, UserData } from "@/lib/types";
+import { LOCATIONS, Location } from "@/lib/locations";
 import StudyGrid from "@/components/StudyGrid";
 import StudyModal from "@/components/StudyModal";
 import TopicIdeas from "@/components/TopicIdeas";
 import CreateStudy from "@/components/CreateStudy";
 import AttendanceChart from "@/components/AttendanceChart";
+import CoachGrow from "@/components/CoachGrow";
 import Toast from "@/components/Toast";
 
-type Tab = "all" | "liked" | "drafts" | "series" | "topics" | "create" | "chart";
+type Tab = "all" | "liked" | "drafts" | "series" | "topics" | "create" | "chart" | "grow";
 
 const NAV = [
   { id: "all" as Tab,    icon: "📖", label: "All Studies",  section: "library" },
@@ -20,11 +22,12 @@ const NAV = [
   { id: "topics" as Tab, icon: "💡", label: "Topic Ideas",  section: "tools"   },
   { id: "create" as Tab, icon: "✏️", label: "Create Study", section: "tools"   },
   { id: "chart" as Tab,  icon: "📊", label: "Attendance",   section: "tools"   },
+  { id: "grow" as Tab,   icon: "🌱", label: "Coach Grow",   section: "coach"   },
 ];
 
 const TITLES: Record<Tab, string> = {
   all: "All Studies", liked: "Liked", drafts: "Drafts", series: "Series",
-  topics: "Topic Ideas", create: "Create Study", chart: "Attendance",
+  topics: "Topic Ideas", create: "Create Study", chart: "Attendance", grow: "Coach Grow",
 };
 
 const GRID_TABS = new Set<Tab>(["all", "liked", "drafts", "series"]);
@@ -34,6 +37,8 @@ export default function Home() {
   const [search, setSearch] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
+  const [location, setLocation] = useState<Location>(LOCATIONS[0]);
+  const [locationPickerOpen, setLocationPickerOpen] = useState(false);
   const [userData, setUserData] = useState<UserData>({ liked: {}, notes: {}, attendance: {}, drafts: [] });
   const [generatedStudies, setGeneratedStudies] = useState<Study[]>([]);
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
@@ -50,12 +55,15 @@ export default function Home() {
     const savedDark = localStorage.getItem("tf_dark") === "true";
     const savedGoal = parseInt(localStorage.getItem("tf_goal") || "20");
     const savedHidden: string[] = JSON.parse(localStorage.getItem("tf_hidden") || "[]");
+    const savedLocationId = localStorage.getItem("tf_location") || LOCATIONS[0].id;
+    const savedLocation = LOCATIONS.find(l => l.id === savedLocationId) || LOCATIONS[0];
     setDark(savedDark);
     setAttendanceGoal(savedGoal);
     setGoalInput(String(savedGoal));
     setHiddenIds(new Set(savedHidden));
+    setLocation(savedLocation);
 
-    loadUserData().then((data) => {
+    loadUserData(savedLocationId).then((data) => {
       const rawNotes = data.notes as Record<string, string>;
       const savedGenerated: Study[] = rawNotes._g ? JSON.parse(rawNotes._g) : [];
       const { _g, ...cleanNotes } = rawNotes;
@@ -86,8 +94,24 @@ export default function Home() {
     const gen = generated ?? generatedStudies;
     const notesWithGen = { ...next.notes, _g: JSON.stringify(gen) };
     setUserData(next);
-    await saveUserData({ ...next, notes: notesWithGen });
-  }, [generatedStudies]);
+    await saveUserData({ ...next, notes: notesWithGen }, location.id);
+  }, [generatedStudies, location.id]);
+
+  async function switchLocation(loc: Location) {
+    setLoaded(false);
+    setLocation(loc);
+    setLocationPickerOpen(false);
+    localStorage.setItem("tf_location", loc.id);
+    const data = await loadUserData(loc.id);
+    const rawNotes = data.notes as Record<string, string>;
+    const savedGenerated: Study[] = rawNotes._g ? JSON.parse(rawNotes._g) : [];
+    const { _g, ...cleanNotes } = rawNotes;
+    void _g;
+    setGeneratedStudies(savedGenerated);
+    setUserData({ ...data, notes: cleanNotes });
+    setLoaded(true);
+    showToast(`Switched to ${loc.name}`);
+  }
 
   const allStudies: Study[] = [
     ...generatedStudies, ...STUDIES, ...userData.drafts,
@@ -164,8 +188,40 @@ export default function Home() {
         <img src="/logo.svg" alt="Triple F" style={{ width: 56, height: 56, flexShrink: 0 }} />
         <div className="sidebar-brand-text">
           <div className="sidebar-logo-text">TRIPLE F</div>
-          <div className="sidebar-tagline">Monday Night Bible Study&apos;s<br/>Knoxville, TN</div>
+          <div className="sidebar-tagline">Monday Night Bible Study&apos;s</div>
         </div>
+      </div>
+
+      {/* Location switcher */}
+      <div style={{ padding: "6px 12px 4px" }}>
+        <button
+          onClick={() => setLocationPickerOpen(o => !o)}
+          style={{ width: "100%", background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "8px 12px", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", color: "white", fontSize: 12, fontWeight: 700, WebkitTapHighlightColor: "transparent" }}
+        >
+          <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: location.color, flexShrink: 0 }} />
+            {location.name}
+          </span>
+          <span style={{ opacity: 0.5, fontSize: 10 }}>{locationPickerOpen ? "▲" : "▼"}</span>
+        </button>
+        {locationPickerOpen && (
+          <div style={{ background: "rgba(0,0,0,0.3)", borderRadius: 8, overflow: "hidden", marginTop: 4 }}>
+            {LOCATIONS.map(loc => (
+              <button
+                key={loc.id}
+                onClick={() => switchLocation(loc)}
+                style={{ width: "100%", padding: "9px 12px", background: loc.id === location.id ? "rgba(255,255,255,0.12)" : "none", border: "none", display: "flex", alignItems: "center", gap: 8, cursor: "pointer", color: loc.id === location.id ? "white" : "rgba(255,255,255,0.6)", fontSize: 12, fontWeight: loc.id === location.id ? 700 : 500, textAlign: "left", WebkitTapHighlightColor: "transparent" }}
+              >
+                <span style={{ width: 8, height: 8, borderRadius: "50%", background: loc.color, flexShrink: 0 }} />
+                <div>
+                  <div>{loc.name}</div>
+                  <div style={{ fontSize: 10, opacity: 0.5, marginTop: 1 }}>{loc.city}</div>
+                </div>
+                {loc.id === location.id && <span style={{ marginLeft: "auto", fontSize: 12 }}>✓</span>}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="sidebar-section">Library</div>
@@ -181,6 +237,15 @@ export default function Home() {
       <hr className="sidebar-divider" />
       <div className="sidebar-section">Tools</div>
       {NAV.filter(n => n.section === "tools").map((item) => (
+        <button key={item.id} className={`sidebar-item${tab === item.id ? " active" : ""}`} onClick={() => changeTab(item.id)}>
+          <span className="sidebar-icon">{item.icon}</span>
+          {item.label}
+        </button>
+      ))}
+
+      <hr className="sidebar-divider" />
+      <div className="sidebar-section">Coach</div>
+      {NAV.filter(n => n.section === "coach").map((item) => (
         <button key={item.id} className={`sidebar-item${tab === item.id ? " active" : ""}`} onClick={() => changeTab(item.id)}>
           <span className="sidebar-icon">{item.icon}</span>
           {item.label}
@@ -311,6 +376,16 @@ export default function Home() {
             <div className="chart-wrap">
               <AttendanceChart studies={allStudies} userData={userData} goal={attendanceGoal} />
             </div>
+          )}
+          {tab === "grow" && (
+            <CoachGrow
+              latestStudy={allStudies.find(s => !s.draft) ?? null}
+              userData={userData}
+              onSaveReflection={async (text) => {
+                await persist({ ...userData, notes: { ...userData.notes, "_coach_journal": text } });
+                showToast("Reflection saved!");
+              }}
+            />
           )}
         </div>
       </div>
