@@ -384,10 +384,20 @@ export default function Home() {
           {tab === "grow" && (
             <CoachGrow
               latestStudy={allStudies.find(s => !s.draft) ?? null}
+              allStudies={allStudies}
               userData={userData}
+              attendanceGoal={attendanceGoal}
               onSaveReflection={async (text) => {
                 await persist({ ...userData, notes: { ...userData.notes, "_coach_journal": text } });
                 showToast("Reflection saved!");
+              }}
+              onSaveProfile={async (profile) => {
+                await persist({ ...userData, notes: { ...userData.notes, "_coach_profile": JSON.stringify(profile) } });
+                showToast("Profile saved!");
+              }}
+              onSaveSeasonVerse={async (verse) => {
+                await persist({ ...userData, notes: { ...userData.notes, "_season_verse": JSON.stringify(verse) } });
+                showToast("Season verse set!");
               }}
             />
           )}
