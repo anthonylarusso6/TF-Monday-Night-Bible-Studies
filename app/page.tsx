@@ -4,6 +4,7 @@ import { STUDIES } from "@/lib/studies";
 import { loadUserData, saveUserData } from "@/lib/supabase";
 import { Study, UserData } from "@/lib/types";
 import { LOCATIONS, Location } from "@/lib/locations";
+import { getSession, clearSession, CoachSession } from "@/lib/coaches";
 import StudyGrid from "@/components/StudyGrid";
 import StudyModal from "@/components/StudyModal";
 import TopicIdeas from "@/components/TopicIdeas";
@@ -13,6 +14,7 @@ import CoachGrow from "@/components/CoachGrow";
 import PrayerRequests from "@/components/PrayerRequests";
 import SeasonPlanner from "@/components/SeasonPlanner";
 import LocationDashboard from "@/components/LocationDashboard";
+import PinLogin from "@/components/PinLogin";
 import Toast from "@/components/Toast";
 
 type Tab = "all" | "liked" | "drafts" | "series" | "topics" | "create" | "chart" | "grow" | "prayer" | "planner" | "dashboard";
@@ -40,6 +42,8 @@ const TITLES: Record<Tab, string> = {
 const GRID_TABS = new Set<Tab>(["all", "liked", "drafts", "series"]);
 
 export default function Home() {
+  const [session, setSession] = useState<CoachSession | null>(null);
+  const [sessionLoaded, setSessionLoaded] = useState(false);
   const [tab, setTab] = useState<Tab>("all");
   const [search, setSearch] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -59,10 +63,16 @@ export default function Home() {
   const [goalInput, setGoalInput] = useState("20");
 
   useEffect(() => {
+    // Load coach session
+    const coachSession = getSession();
+    setSession(coachSession);
+    setSessionLoaded(true);
+
     const savedDark = localStorage.getItem("tf_dark") === "true";
     const savedGoal = parseInt(localStorage.getItem("tf_goal") || "20");
     const savedHidden: string[] = JSON.parse(localStorage.getItem("tf_hidden") || "[]");
-    const savedLocationId = localStorage.getItem("tf_location") || LOCATIONS[0].id;
+    // If coach has a location, use it; otherwise fall back to saved
+    const savedLocationId = coachSession?.locationId || localStorage.getItem("tf_location") || LOCATIONS[0].id;
     const savedLocation = LOCATIONS.find(l => l.id === savedLocationId) || LOCATIONS[0];
     setDark(savedDark);
     setAttendanceGoal(savedGoal);
@@ -292,6 +302,21 @@ export default function Home() {
               <span className="sidebar-stat-val">2025–26</span>
             </div>
           </div>
+          {/* Logged-in coach */}
+          {session && (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0 8px", borderTop: "1px solid rgba(255,255,255,0.07)", marginTop: 4 }}>
+              <div style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800, color: "white", flexShrink: 0 }}>
+                {session.name.split(" ").map((w:string) => w[0]).join("").toUpperCase().slice(0,2)}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "white", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{session.name}</div>
+                <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)" }}>{session.role}</div>
+              </div>
+              <button onClick={() => { clearSession(); setSession(null); }} style={{ background: "none", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 6, padding: "4px 8px", color: "rgba(255,255,255,0.45)", fontSize: 11, cursor: "pointer", flexShrink: 0, fontFamily: "Arial, sans-serif" }}>
+                Sign out
+              </button>
+            </div>
+          )}
           <button className="dark-toggle" onClick={() => setDark(d => !d)}>
             {dark ? "☀️" : "🌙"} {dark ? "Light Mode" : "Dark Mode"}
           </button>
@@ -299,6 +324,17 @@ export default function Home() {
         </div>
       )}
     </aside>
+  );
+
+  // Show PIN login if session not loaded yet or not logged in
+  if (!sessionLoaded) return null;
+  if (!session) return (
+    <PinLogin onLogin={(s) => {
+      setSession(s);
+      // Set location based on coach's assigned location
+      const loc = LOCATIONS.find(l => l.id === s.locationId) || LOCATIONS[0];
+      switchLocation(loc);
+    }} />
   );
 
   return (
