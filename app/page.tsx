@@ -38,6 +38,7 @@ export default function Home() {
   const [generatedStudies, setGeneratedStudies] = useState<Study[]>([]);
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
   const [openStudyId, setOpenStudyId] = useState<string | number | null>(null);
+  const [prefilledTopic, setPrefilledTopic] = useState<string | undefined>(undefined);
   const [dark, setDark] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -290,8 +291,22 @@ export default function Home() {
               </>
             );
           })()}
-          {tab === "topics" && <TopicIdeas onCreateDraft={handleCreateDraft} />}
-          {tab === "create" && <CreateStudy onStudyCreated={handleStudyCreated} onToast={showToast} />}
+          {tab === "topics" && (
+            <TopicIdeas
+              onCreateDraft={handleCreateDraft}
+              onQuickCreate={(topic) => {
+                setPrefilledTopic(topic);
+                changeTab("create");
+              }}
+            />
+          )}
+          {tab === "create" && (
+            <CreateStudy
+              prefilledTopic={prefilledTopic}
+              onStudyCreated={(study) => { setPrefilledTopic(undefined); handleStudyCreated(study); }}
+              onToast={showToast}
+            />
+          )}
           {tab === "chart" && (
             <div className="chart-wrap">
               <AttendanceChart studies={allStudies} userData={userData} goal={attendanceGoal} />
