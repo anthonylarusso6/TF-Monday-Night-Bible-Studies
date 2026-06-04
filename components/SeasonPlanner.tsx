@@ -7,6 +7,7 @@ interface PlannedSession {
   date: string;
   studyId?: string | number;
   topic?: string;
+  speaker?: string;
   notes?: string;
 }
 
@@ -45,6 +46,7 @@ export default function SeasonPlanner({ allStudies, userData, onSave }: SeasonPl
   const [editingDate, setEditingDate] = useState<string | null>(null);
   const [editTopic, setEditTopic] = useState("");
   const [editStudyId, setEditStudyId] = useState<string>("");
+  const [editSpeaker, setEditSpeaker] = useState("");
   const [editNotes, setEditNotes] = useState("");
 
   const mondays = getNextMondays(12);
@@ -59,17 +61,19 @@ export default function SeasonPlanner({ allStudies, userData, onSave }: SeasonPl
     setEditingDate(date);
     setEditTopic(existing?.topic || "");
     setEditStudyId(existing?.studyId ? String(existing.studyId) : "");
+    setEditSpeaker(existing?.speaker || "");
     setEditNotes(existing?.notes || "");
   }
 
   function saveEdit() {
     if (!editingDate) return;
     const updated = plan.filter(p => p.date !== editingDate);
-    if (editTopic || editStudyId || editNotes) {
+    if (editTopic || editStudyId || editSpeaker || editNotes) {
       updated.push({
         date: editingDate,
         ...(editStudyId ? { studyId: editStudyId } : {}),
         ...(editTopic ? { topic: editTopic } : {}),
+        ...(editSpeaker ? { speaker: editSpeaker } : {}),
         ...(editNotes ? { notes: editNotes } : {}),
       });
     }
@@ -132,7 +136,10 @@ export default function SeasonPlanner({ allStudies, userData, onSave }: SeasonPl
                       <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text)", lineHeight: 1.3 }}>
                         {linkedStudy ? linkedStudy.title : planned.topic || "Planned"}
                       </div>
-                      {planned.notes && <div style={{ fontSize: 12, color: "var(--text2)", marginTop: 2 }}>{planned.notes}</div>}
+                      <div style={{ display: "flex", gap: 10, marginTop: 3, flexWrap: "wrap" }}>
+                        {planned.speaker && <span style={{ fontSize: 11, color: "var(--accent)", fontWeight: 700, fontFamily: "Arial, sans-serif" }}>🎤 {planned.speaker}</span>}
+                        {planned.notes && <span style={{ fontSize: 11, color: "var(--text2)", fontFamily: "Arial, sans-serif" }}>{planned.notes}</span>}
+                      </div>
                     </>
                   ) : (
                     <div style={{ fontSize: 13, color: "var(--text2)", fontStyle: "italic" }}>Tap to plan this Monday</div>
@@ -172,6 +179,11 @@ export default function SeasonPlanner({ allStudies, userData, onSave }: SeasonPl
                       </datalist>
                     </div>
                   )}
+
+                  <div style={{ marginBottom: 10 }}>
+                    <div className="form-label">Who&apos;s Speaking</div>
+                    <input className="form-input" value={editSpeaker} onChange={e => setEditSpeaker(e.target.value)} placeholder="e.g. Anthony, Coach Lee..." />
+                  </div>
 
                   <div style={{ marginBottom: 12 }}>
                     <div className="form-label">Notes (optional)</div>
