@@ -10,24 +10,31 @@ import TopicIdeas from "@/components/TopicIdeas";
 import CreateStudy from "@/components/CreateStudy";
 import AttendanceChart from "@/components/AttendanceChart";
 import CoachGrow from "@/components/CoachGrow";
+import PrayerRequests from "@/components/PrayerRequests";
+import SeasonPlanner from "@/components/SeasonPlanner";
+import LocationDashboard from "@/components/LocationDashboard";
 import Toast from "@/components/Toast";
 
-type Tab = "all" | "liked" | "drafts" | "series" | "topics" | "create" | "chart" | "grow";
+type Tab = "all" | "liked" | "drafts" | "series" | "topics" | "create" | "chart" | "grow" | "prayer" | "planner" | "dashboard";
 
 const NAV = [
-  { id: "all" as Tab,    icon: "📖", label: "All Studies",  section: "library" },
-  { id: "liked" as Tab,  icon: "❤️", label: "Liked",        section: "library" },
-  { id: "drafts" as Tab, icon: "📝", label: "Drafts",       section: "library" },
-  { id: "series" as Tab, icon: "📚", label: "Series",       section: "library" },
-  { id: "topics" as Tab, icon: "💡", label: "Topic Ideas",  section: "tools"   },
-  { id: "create" as Tab, icon: "✏️", label: "Create Study", section: "tools"   },
-  { id: "chart" as Tab,  icon: "📊", label: "Attendance",   section: "tools"   },
-  { id: "grow" as Tab,   icon: "🌱", label: "Coach Grow",   section: "coach"   },
+  { id: "all" as Tab,       icon: "📖", label: "All Studies",    section: "library" },
+  { id: "liked" as Tab,     icon: "❤️", label: "Liked",          section: "library" },
+  { id: "drafts" as Tab,    icon: "📝", label: "Drafts",         section: "library" },
+  { id: "series" as Tab,    icon: "📚", label: "Series",         section: "library" },
+  { id: "topics" as Tab,    icon: "💡", label: "Topic Ideas",    section: "tools"   },
+  { id: "create" as Tab,    icon: "✏️", label: "Create Study",   section: "tools"   },
+  { id: "prayer" as Tab,    icon: "🙏", label: "Prayer Requests",section: "tools"   },
+  { id: "planner" as Tab,   icon: "📅", label: "Season Planner", section: "tools"   },
+  { id: "chart" as Tab,     icon: "📊", label: "Attendance",     section: "tools"   },
+  { id: "dashboard" as Tab, icon: "🏟", label: "All Locations",  section: "tools"   },
+  { id: "grow" as Tab,      icon: "🌱", label: "Coach Grow",     section: "coach"   },
 ];
 
 const TITLES: Record<Tab, string> = {
   all: "All Studies", liked: "Liked", drafts: "Drafts", series: "Series",
   topics: "Topic Ideas", create: "Create Study", chart: "Attendance", grow: "Coach Grow",
+  prayer: "Prayer Requests", planner: "Season Planner", dashboard: "All Locations",
 };
 
 const GRID_TABS = new Set<Tab>(["all", "liked", "drafts", "series"]);
@@ -374,11 +381,6 @@ export default function Home() {
               onToast={showToast}
             />
           )}
-          {tab === "chart" && (
-            <div className="chart-wrap">
-              <AttendanceChart studies={allStudies} userData={userData} goal={attendanceGoal} />
-            </div>
-          )}
           {tab === "grow" && (
             <CoachGrow
               latestStudy={allStudies.find(s => !s.draft) ?? null}
@@ -389,6 +391,29 @@ export default function Home() {
               }}
             />
           )}
+          {tab === "prayer" && (
+            <PrayerRequests
+              userData={userData}
+              onSave={async (requests) => {
+                await persist({ ...userData, notes: { ...userData.notes, _prayers: JSON.stringify(requests) } });
+              }}
+            />
+          )}
+          {tab === "planner" && (
+            <SeasonPlanner
+              allStudies={allStudies}
+              userData={userData}
+              onSave={async (plan) => {
+                await persist({ ...userData, notes: { ...userData.notes, _plan: JSON.stringify(plan) } });
+              }}
+            />
+          )}
+          {tab === "chart" && (
+            <div className="chart-wrap">
+              <AttendanceChart studies={allStudies} userData={userData} goal={attendanceGoal} />
+            </div>
+          )}
+          {tab === "dashboard" && <LocationDashboard />}
         </div>
       </div>
 

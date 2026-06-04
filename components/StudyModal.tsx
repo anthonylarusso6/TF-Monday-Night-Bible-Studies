@@ -1,7 +1,17 @@
 "use client";
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, useCallback } from "react";
 import { Study, UserData } from "@/lib/types";
 import { generateLeaderPDF, generateStudentPDF } from "@/lib/generatePDF";
+import SessionTimer from "./SessionTimer";
+import dynamic from "next/dynamic";
+const QRCodeCanvas = dynamic(() => import("qrcode").then(mod => {
+  // Use qrcode to generate a data URL, render as img
+  return { default: ({ value }: { value: string }) => {
+    const [url, setUrl] = useState("");
+    useEffect(() => { mod.toDataURL(value, { width: 240, margin: 2 }).then(setUrl); }, [value]);
+    return url ? <img src={url} alt="QR Code" style={{ width: 220, height: 220, display: "block", margin: "0 auto" }} /> : <div style={{width:220,height:220,background:"var(--border)",borderRadius:8}} />;
+  }};
+}), { ssr: false });
 
 interface StudyModalProps {
   study: Study;
@@ -27,6 +37,17 @@ export default function StudyModal({
   const sid = String(study.id);
   const [notes, setNotes] = useState(userData.notes[sid] || "");
   const [attend, setAttend] = useState(String(userData.attendance[sid] || ""));
+  const [showTimer, setShowTimer] = useState(false);
+  const [showQR, setShowQR] = useState(false);
+  const [ratingStars, setRatingStars] = useState(() => {
+    try { const r = JSON.parse((userData.notes as Record<string,string>)[`_rating_${sid}`] || "{}"); return r.stars || 0; } catch { return 0; }
+  });
+  const [ratingHit, setRatingHit] = useState(() => {
+    try { const r = JSON.parse((userData.notes as Record<string,string>)[`_rating_${sid}`] || "{}"); return r.whatHit || ""; } catch { return ""; }
+  });
+  const [ratingChange, setRatingChange] = useState(() => {
+    try { const r = JSON.parse((userData.notes as Record<string,string>)[`_rating_${sid}`] || "{}"); return r.whatToChange || ""; } catch { return ""; }
+  });
   const overlayRef = useRef<HTMLDivElement>(null);
 
   const handleOverlayClick = (e: React.MouseEvent) => {
@@ -123,6 +144,7 @@ h1{font-size:22px;text-align:center;margin-bottom:4px}.th{font-size:13px;text-al
   const socialRef = useRef<HTMLDivElement>(null);
 
   return (
+    <>
     <div className="overlay" ref={overlayRef} onClick={handleOverlayClick}>
       <div className="modal" role="dialog" aria-modal="true">
         {/* Sticky header */}
@@ -236,33 +258,48 @@ h1{font-size:22px;text-align:center;margin-bottom:4px}.th{font-size:13px;text-al
             </button>
           </div>
 
-          {/* Attendance */}
+          {/* Attendance + Clicker */}
           <div className="sec">
-            <div className="sec-label">Attendance</div>
-            <div className="attend-row">
-              <input
-                className="attend-input"
-                type="number"
-                min={0}
-                placeholder="# students"
-                value={attend}
-                onChange={(e) => setAttend(e.target.value)}
-              />
-              <button
-                className="save-btn"
-                onClick={() => {
-                  if (attend) {
-                    onSaveAttend(study.id, parseInt(attend));
-                    onToast(`Attendance saved — ${attend} students!`);
-                  }
-                }}
-              >
-                Save
-              </button>
-              {userData.attendance[sid] && (
-                <span className="attend-display">Last: {userData.attendance[sid]} students</span>
-              )}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+              <div className="sec-label" style={{ margin: 0 }}>Attendance</div>
+              <button onClick={() => setShowTimer(true)} style={{ background: "var(--primary)", color: "white", border: "none", borderRadius: 8, padding: "6px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 5 }}>⏱ Start Timer</button>
             </div>
+            {/* Big clicker */}
+            <div style={{ display: "flex", alignItems: "center", gap: 0, background: "var(--bg)", borderRadius: 12, border: "1.5px solid var(--border)", overflow: "hidden", marginBottom: 10 }}>
+              <button onClick={() => setAttend(a => String(Math.max(0, (parseInt(a)||0) - 1)))} style={{ width: 52, height: 52, fontSize: 24, background: "none", border: "none", cursor: "pointer", color: "var(--text2)", fontWeight: 300 }}>−</button>
+              <div style={{ flex: 1, textAlign: "center" }}>
+                <span style={{ fontSize: 28, fontWeight: 800, color: "var(--text)" }}>{attend || "0"}</span>
+                <span style={{ fontSize: 12, color: "var(--text2)", marginLeft: 4 }}>students</span>
+              </div>
+              <button onClick={() => setAttend(a => String((parseInt(a)||0) + 1))} style={{ width: 52, height: 52, fontSize: 24, background: "none", border: "none", cursor: "pointer", color: "var(--accent)", fontWeight: 700 }}>＋</button>
+            </div>
+            <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+              {[5,10,15,20].map(n => (
+                <button key={n} onClick={() => setAttend(String(n))} style={{ flex: 1, padding: "5px 0", background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12, fontWeight: 600, color: "var(--text2)", cursor: "pointer" }}>+{n}</button>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <button className="save-btn" onClick={() => { if (attend) { onSaveAttend(study.id, parseInt(attend)); onToast(`Attendance saved — ${attend} students!`); }}}>Save Attendance</button>
+              {userData.attendance[sid] && <span className="attend-display">Last: {userData.attendance[sid]} students</span>}
+            </div>
+          </div>
+
+          {/* Post-Session Rating */}
+          <div className="sec">
+            <div className="sec-label">Session Rating</div>
+            <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+              {[1,2,3,4,5].map(n => (
+                <button key={n} onClick={() => setRatingStars(n)} style={{ fontSize: 24, background: "none", border: "none", cursor: "pointer", opacity: n <= ratingStars ? 1 : 0.25, transition: "opacity 0.1s", padding: "2px 4px" }}>⭐</button>
+              ))}
+            </div>
+            <input className="form-input" style={{ marginBottom: 8 }} placeholder="What hit with the students?" value={ratingHit} onChange={e => setRatingHit(e.target.value)} />
+            <input className="form-input" style={{ marginBottom: 10 }} placeholder="What would you change?" value={ratingChange} onChange={e => setRatingChange(e.target.value)} />
+            <button className="save-btn" onClick={() => {
+              onSaveNotes(study.id, notes);
+              const ratingKey = `_rating_${sid}`;
+              onSaveNotes(ratingKey, JSON.stringify({ stars: ratingStars, whatHit: ratingHit, whatToChange: ratingChange, date: new Date().toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}) }));
+              onToast("Rating saved!");
+            }}>Save Rating</button>
           </div>
 
           {/* Student tools (non-draft only) */}
@@ -272,18 +309,14 @@ h1{font-size:22px;text-align:center;margin-bottom:4px}.th{font-size:13px;text-al
               <div className="divider-label">Student Tools</div>
               <div className="btn-row">
                 <button className="btn btn-primary" onClick={() => {
-                  const attend = userData.attendance[sid];
-                  generateLeaderPDF(study, notes, attend);
+                  const att = userData.attendance[sid];
+                  generateLeaderPDF(study, notes, att);
                   onToast("Leader guide PDF downloaded!");
-                }}>📄 Download Leader PDF</button>
-                <button className="btn btn-outline" onClick={() => {
-                  generateStudentPDF(study);
-                  onToast("Student handout PDF downloaded!");
-                }}>📋 Download Student PDF</button>
-                <button className="btn btn-outline" onClick={doCopyFull}>📎 Copy Full Study</button>
-                <button className="btn btn-outline" onClick={() => socialRef.current?.scrollIntoView({ behavior: "smooth" })}>
-                  📱 Social Card
-                </button>
+                }}>📄 Leader PDF</button>
+                <button className="btn btn-outline" onClick={() => { generateStudentPDF(study); onToast("Student PDF downloaded!"); }}>📋 Student PDF</button>
+                <button className="btn btn-outline" onClick={() => setShowQR(true)}>📲 QR Code</button>
+                <button className="btn btn-outline" onClick={doCopyFull}>📎 Copy</button>
+                <button className="btn btn-outline" onClick={() => socialRef.current?.scrollIntoView({ behavior: "smooth" })}>📱 Social</button>
               </div>
 
               {/* Social card */}
@@ -327,5 +360,22 @@ h1{font-size:22px;text-align:center;margin-bottom:4px}.th{font-size:13px;text-al
         </div>
       </div>
     </div>
+
+    {/* Session Timer overlay */}
+    {showTimer && <SessionTimer onClose={() => setShowTimer(false)} />}
+
+    {/* QR Code modal */}
+    {showQR && (
+      <div onClick={() => setShowQR(false)} style={{ position: "fixed", inset: 0, background: "rgba(5,18,28,0.75)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+        <div onClick={e => e.stopPropagation()} style={{ background: "white", borderRadius: 20, padding: "28px 24px", maxWidth: 300, width: "100%", textAlign: "center" }}>
+          <div style={{ fontSize: 14, fontWeight: 800, color: "#0f2530", marginBottom: 6 }}>Student Page QR Code</div>
+          <div style={{ fontSize: 12, color: "#567888", marginBottom: 16, fontFamily: "Arial, sans-serif" }}>Display this on screen so students can follow along</div>
+          <QRCodeCanvas value={`${typeof window !== "undefined" ? window.location.origin : ""}/student`} />
+          <div style={{ fontSize: 11, color: "#567888", marginTop: 12, fontFamily: "Arial, sans-serif" }}>/student</div>
+          <button onClick={() => setShowQR(false)} style={{ marginTop: 16, padding: "10px 24px", background: "#0f4f6a", color: "white", border: "none", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: "pointer", width: "100%" }}>Done</button>
+        </div>
+      </div>
+    )}
+    </>
   );
 }
