@@ -4,6 +4,7 @@ export interface Location {
   short: string;
   city: string;
   color: string;
+  hasBuiltInStudies?: boolean; // if true, shows the hardcoded Anthony studies
 }
 
 export const LOCATIONS: Location[] = [
@@ -13,6 +14,7 @@ export const LOCATIONS: Location[] = [
     short: "KNX",
     city: "Knoxville, TN",
     color: "#0f4f6a",
+    hasBuiltInStudies: true,
   },
   {
     id: "tf-blount-county",
@@ -20,6 +22,7 @@ export const LOCATIONS: Location[] = [
     short: "BLT",
     city: "Blount County, TN",
     color: "#047857",
+    hasBuiltInStudies: false,
   },
 ];
 

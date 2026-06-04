@@ -113,8 +113,10 @@ export default function Home() {
     showToast(`Switched to ${loc.name}`);
   }
 
+  // Built-in studies only show for locations that have hasBuiltInStudies: true
+  const builtInStudies = location.hasBuiltInStudies ? STUDIES : [];
   const allStudies: Study[] = [
-    ...generatedStudies, ...STUDIES, ...userData.drafts,
+    ...generatedStudies, ...builtInStudies, ...userData.drafts,
   ].filter((s) => !hiddenIds.has(String(s.id)));
 
   const openStudy = openStudyId != null
