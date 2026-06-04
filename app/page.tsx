@@ -15,9 +15,10 @@ import PrayerRequests from "@/components/PrayerRequests";
 import SeasonPlanner from "@/components/SeasonPlanner";
 import LocationDashboard from "@/components/LocationDashboard";
 import PinLogin from "@/components/PinLogin";
+import AdminPanel from "@/components/AdminPanel";
 import Toast from "@/components/Toast";
 
-type Tab = "all" | "liked" | "drafts" | "series" | "topics" | "create" | "chart" | "grow" | "prayer" | "planner" | "dashboard";
+type Tab = "all" | "liked" | "drafts" | "series" | "topics" | "create" | "chart" | "grow" | "prayer" | "planner" | "dashboard" | "admin";
 
 const NAV = [
   { id: "all" as Tab,       icon: "📖", label: "All Studies",    section: "library" },
@@ -36,7 +37,7 @@ const NAV = [
 const TITLES: Record<Tab, string> = {
   all: "All Studies", liked: "Liked", drafts: "Drafts", series: "Series",
   topics: "Topic Ideas", create: "Create Study", chart: "Attendance", grow: "Coach Grow",
-  prayer: "Prayer Requests", planner: "Season Planner", dashboard: "All Locations",
+  prayer: "Prayer Requests", planner: "Season Planner", dashboard: "All Locations", admin: "Admin",
 };
 
 const GRID_TABS = new Set<Tab>(["all", "liked", "drafts", "series"]);
@@ -270,6 +271,13 @@ export default function Home() {
           {item.label}
         </button>
       ))}
+      {/* Admin — Head Coach only */}
+      {session?.role === "Head Coach" && (
+        <button className={`sidebar-item${tab === "admin" ? " active" : ""}`} onClick={() => changeTab("admin")}>
+          <span className="sidebar-icon">⚙️</span>
+          Admin
+        </button>
+      )}
 
       <hr className="sidebar-divider" />
 
@@ -460,6 +468,7 @@ export default function Home() {
             </div>
           )}
           {tab === "dashboard" && <LocationDashboard />}
+          {tab === "admin" && session?.role === "Head Coach" && <AdminPanel session={session} />}
         </div>
       </div>
 
