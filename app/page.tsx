@@ -160,9 +160,11 @@ export default function Home() {
   const Sidebar = (
     <aside className={`sidebar${sidebarOpen ? " open" : ""}`}>
       <div className="sidebar-brand">
-        <img src="/logo.svg" alt="Triple F Bible Study's" style={{ width: 96, height: 96, marginBottom: 10, display: "block" }} />
-        <div className="sidebar-tagline" style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.55)", letterSpacing: 0.5 }}>Monday Night Bible Study&apos;s</div>
-        <div className="sidebar-location">Knoxville, TN</div>
+        <img src="/logo.svg" alt="Triple F" style={{ width: 56, height: 56, flexShrink: 0 }} />
+        <div className="sidebar-brand-text">
+          <div className="sidebar-logo-text">TRIPLE F</div>
+          <div className="sidebar-tagline">Monday Night Bible Study&apos;s<br/>Knoxville, TN</div>
+        </div>
       </div>
 
       <div className="sidebar-section">Library</div>
@@ -188,30 +190,32 @@ export default function Home() {
 
       {loaded && (
         <div className="sidebar-footer">
-          <div className="sidebar-section" style={{ padding: "0 0 10px" }}>Season Stats</div>
-          <div className="sidebar-stats-grid">
-            <div className="sidebar-stat-box">
-              <div className="sidebar-stat-num">{published}</div>
-              <div className="sidebar-stat-lbl">Studies</div>
+          <div className="sidebar-section" style={{ padding: "0 0 8px" }}>Season</div>
+          <div className="sidebar-stats">
+            <div className="sidebar-stat">
+              <span className="sidebar-stat-label">Studies</span>
+              <span className="sidebar-stat-val">{published}</span>
             </div>
-            <div className="sidebar-stat-box">
-              <div className={`sidebar-stat-num${avgAttend != null && avgAttend >= attendanceGoal ? " goal-met" : ""}`}>
-                {avgAttend ?? "—"}
-              </div>
-              <div className="sidebar-stat-lbl">Avg Attend</div>
+            <div className="sidebar-stat">
+              <span className="sidebar-stat-label">Avg Attendance</span>
+              <span className={`sidebar-stat-val${avgAttend != null && avgAttend >= attendanceGoal ? " goal-met" : ""}`}>{avgAttend ?? "—"}</span>
             </div>
-          </div>
-          <div className="goal-row">
-            <span className="goal-label">Student goal</span>
-            {editingGoal ? (
-              <form onSubmit={(e) => { e.preventDefault(); saveGoal(); }} style={{ margin: 0 }}>
-                <input autoFocus type="number" value={goalInput} onChange={(e) => setGoalInput(e.target.value)} onBlur={saveGoal} className="goal-input" />
-              </form>
-            ) : (
-              <span className="goal-val" onClick={() => setEditingGoal(true)}>
-                {attendanceGoal} <span style={{ fontSize: 11, opacity: 0.5 }}>✎</span>
-              </span>
-            )}
+            <div className="sidebar-stat">
+              <span className="sidebar-stat-label">Student Goal</span>
+              {editingGoal ? (
+                <form onSubmit={(e) => { e.preventDefault(); saveGoal(); }} style={{ margin: 0 }}>
+                  <input autoFocus type="number" value={goalInput} onChange={(e) => setGoalInput(e.target.value)} onBlur={saveGoal} className="goal-input" />
+                </form>
+              ) : (
+                <span className="goal-val" onClick={() => setEditingGoal(true)}>
+                  {attendanceGoal} <span style={{ fontSize: 10, opacity: 0.45 }}>✎</span>
+                </span>
+              )}
+            </div>
+            <div className="sidebar-stat">
+              <span className="sidebar-stat-label">Season</span>
+              <span className="sidebar-stat-val">2025–26</span>
+            </div>
           </div>
           <button className="dark-toggle" onClick={() => setDark(d => !d)}>
             {dark ? "☀️" : "🌙"} {dark ? "Light Mode" : "Dark Mode"}
@@ -258,9 +262,34 @@ export default function Home() {
         </div>
 
         <div className="content-body">
-          {isGrid && (
-            <StudyGrid studies={allStudies} userData={userData} tab={tab as "all"|"liked"|"drafts"|"series"} search={search} onOpen={setOpenStudyId} onToggleLike={toggleLike} />
-          )}
+          {isGrid && (() => {
+            const latestStudy = tab === "all" && !search ? (allStudies.find(s => !s.draft) ?? null) : null;
+            const gridStudies = latestStudy ? allStudies.filter(s => String(s.id) !== String(latestStudy.id)) : allStudies;
+            const gridCount = gridStudies.filter(s => tab === "drafts" ? s.draft : tab === "liked" ? !!userData.liked[String(s.id)] : !s.draft).length;
+            return (
+              <>
+                {latestStudy && (
+                  <div className="featured-study" onClick={() => setOpenStudyId(latestStudy.id)}>
+                    <div className="featured-badge">⚡ Latest Study</div>
+                    {latestStudy.series && <div className="featured-series">{latestStudy.series}</div>}
+                    <div className="featured-title">{latestStudy.title}</div>
+                    {latestStudy.anchor?.ref && <div className="featured-verse">{latestStudy.anchor.ref} — {latestStudy.anchor.text.substring(0, 85)}...</div>}
+                    <div className="featured-footer">
+                      <span className="featured-date">{latestStudy.date}</span>
+                      <span className="featured-cta">Open Study →</span>
+                    </div>
+                  </div>
+                )}
+                {gridCount > 0 && (
+                  <div className="section-header">
+                    <span className="section-label">{tab === "liked" ? "Liked Studies" : tab === "drafts" ? "Drafts" : tab === "series" ? "By Series" : "All Studies"}</span>
+                    <span className="section-count">{gridCount}</span>
+                  </div>
+                )}
+                <StudyGrid studies={gridStudies} userData={userData} tab={tab as "all"|"liked"|"drafts"|"series"} search={search} onOpen={setOpenStudyId} onToggleLike={toggleLike} />
+              </>
+            );
+          })()}
           {tab === "topics" && <TopicIdeas onCreateDraft={handleCreateDraft} />}
           {tab === "create" && <CreateStudy onStudyCreated={handleStudyCreated} onToast={showToast} />}
           {tab === "chart" && (
