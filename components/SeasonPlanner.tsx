@@ -3,13 +3,22 @@ import { useState } from "react";
 import { Study, UserData } from "@/lib/types";
 import { TOPIC_CATEGORIES } from "@/lib/topics";
 
+type SpeakerType = "coach" | "testimony" | "guest";
+
 interface PlannedSession {
   date: string;
   studyId?: string | number;
   topic?: string;
   speaker?: string;
+  speakerType?: SpeakerType;
   notes?: string;
 }
+
+const SPEAKER_TYPES: { value: SpeakerType; label: string; icon: string; color: string; placeholder: string }[] = [
+  { value: "coach",     label: "Coach / Leader",     icon: "🎤", color: "var(--accent)",    placeholder: "e.g. Anthony, Coach Lee..." },
+  { value: "testimony", label: "Student Testimony",  icon: "👤", color: "var(--series-rel)", placeholder: "Student's name" },
+  { value: "guest",     label: "Guest Speaker",      icon: "✝️", color: "var(--series-iw)",  placeholder: "e.g. Pastor Johnson..." },
+];
 
 interface SeasonPlannerProps {
   allStudies: Study[];
@@ -47,6 +56,7 @@ export default function SeasonPlanner({ allStudies, userData, onSave }: SeasonPl
   const [editTopic, setEditTopic] = useState("");
   const [editStudyId, setEditStudyId] = useState<string>("");
   const [editSpeaker, setEditSpeaker] = useState("");
+  const [editSpeakerType, setEditSpeakerType] = useState<SpeakerType>("coach");
   const [editNotes, setEditNotes] = useState("");
 
   const mondays = getNextMondays(12);
@@ -62,6 +72,7 @@ export default function SeasonPlanner({ allStudies, userData, onSave }: SeasonPl
     setEditTopic(existing?.topic || "");
     setEditStudyId(existing?.studyId ? String(existing.studyId) : "");
     setEditSpeaker(existing?.speaker || "");
+    setEditSpeakerType(existing?.speakerType || "coach");
     setEditNotes(existing?.notes || "");
   }
 
@@ -73,7 +84,7 @@ export default function SeasonPlanner({ allStudies, userData, onSave }: SeasonPl
         date: editingDate,
         ...(editStudyId ? { studyId: editStudyId } : {}),
         ...(editTopic ? { topic: editTopic } : {}),
-        ...(editSpeaker ? { speaker: editSpeaker } : {}),
+        ...(editSpeaker ? { speaker: editSpeaker, speakerType: editSpeakerType } : {}),
         ...(editNotes ? { notes: editNotes } : {}),
       });
     }
@@ -137,7 +148,10 @@ export default function SeasonPlanner({ allStudies, userData, onSave }: SeasonPl
                         {linkedStudy ? linkedStudy.title : planned.topic || "Planned"}
                       </div>
                       <div style={{ display: "flex", gap: 10, marginTop: 3, flexWrap: "wrap" }}>
-                        {planned.speaker && <span style={{ fontSize: 11, color: "var(--accent)", fontWeight: 700, fontFamily: "Arial, sans-serif" }}>🎤 {planned.speaker}</span>}
+                        {planned.speaker && (() => {
+                          const st = SPEAKER_TYPES.find(t => t.value === (planned.speakerType || "coach"))!;
+                          return <span style={{ fontSize: 11, color: st.color, fontWeight: 700, fontFamily: "Arial, sans-serif" }}>{st.icon} {planned.speakerType === "testimony" ? `${planned.speaker} — Testimony` : planned.speakerType === "guest" ? `Guest: ${planned.speaker}` : planned.speaker}</span>;
+                        })()}
                         {planned.notes && <span style={{ fontSize: 11, color: "var(--text2)", fontFamily: "Arial, sans-serif" }}>{planned.notes}</span>}
                       </div>
                     </>
@@ -182,7 +196,20 @@ export default function SeasonPlanner({ allStudies, userData, onSave }: SeasonPl
 
                   <div style={{ marginBottom: 10 }}>
                     <div className="form-label">Who&apos;s Speaking</div>
-                    <input className="form-input" value={editSpeaker} onChange={e => setEditSpeaker(e.target.value)} placeholder="e.g. Anthony, Coach Lee..." />
+                    {/* Type selector */}
+                    <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
+                      {SPEAKER_TYPES.map(st => (
+                        <button key={st.value} onClick={() => setEditSpeakerType(st.value)} style={{ padding: "5px 12px", borderRadius: 20, border: `1.5px solid ${editSpeakerType === st.value ? st.color : "var(--border)"}`, background: editSpeakerType === st.value ? `${st.color}18` : "var(--card)", color: editSpeakerType === st.value ? st.color : "var(--text2)", fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 5 }}>
+                          {st.icon} {st.label}
+                        </button>
+                      ))}
+                    </div>
+                    <input
+                      className="form-input"
+                      value={editSpeaker}
+                      onChange={e => setEditSpeaker(e.target.value)}
+                      placeholder={SPEAKER_TYPES.find(t => t.value === editSpeakerType)?.placeholder}
+                    />
                   </div>
 
                   <div style={{ marginBottom: 12 }}>
