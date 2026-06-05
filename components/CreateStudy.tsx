@@ -87,7 +87,16 @@ export default function CreateStudy({ prefilledTopic, onStudyCreated, onToast }:
         {loading ? "Generating..." : "✦ Generate Study"}
       </button>
 
-      {error && <div className="error-box">{error}</div>}
+      {error && (
+        <div className="error-box">
+          {error}
+          {error.includes("not configured") && (
+            <div style={{ marginTop: 8, fontSize: 12, opacity: 0.85 }}>
+              Add <code>GEMINI_API_KEY</code> in your Vercel project settings under Environment Variables, then redeploy.
+            </div>
+          )}
+        </div>
+      )}
 
       {!loading && (
         <div style={{ marginTop: 20, padding: "14px 16px", background: "var(--bg)", borderRadius: 10, fontFamily: "Arial, sans-serif", fontSize: 13, color: "var(--text2)", lineHeight: 1.6 }}>
