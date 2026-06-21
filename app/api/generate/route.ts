@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { jsonrepair } from "jsonrepair";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
@@ -125,14 +126,10 @@ Now write the complete study on "${topic}" and return ONLY valid JSON (no markdo
     let studyData;
     try {
       const clean = text.replace(/```json\n?|\n?```/g, "").trim();
-      studyData = JSON.parse(clean);
+      const extracted = clean.match(/\{[\s\S]*\}/)?.[0] ?? clean;
+      studyData = JSON.parse(jsonrepair(extracted));
     } catch {
-      const match = text.match(/\{[\s\S]*\}/);
-      if (match) {
-        studyData = JSON.parse(match[0]);
-      } else {
-        throw new Error("Could not parse JSON from response");
-      }
+      throw new Error("Could not parse AI response as JSON. Please try again.");
     }
 
     const study = {
