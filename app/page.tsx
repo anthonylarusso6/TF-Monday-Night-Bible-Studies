@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { STUDIES } from "@/lib/studies";
 import { loadUserData, saveUserData } from "@/lib/supabase";
 import { Study, UserData } from "@/lib/types";
@@ -62,6 +62,8 @@ export default function Home() {
   const [attendanceGoal, setAttendanceGoal] = useState(20);
   const [editingGoal, setEditingGoal] = useState(false);
   const [goalInput, setGoalInput] = useState("20");
+  const [syncing, setSyncing] = useState(false);
+  const syncingRef = useRef(false);
 
   useEffect(() => {
     // Load coach session
@@ -107,6 +109,32 @@ export default function Home() {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, []);
+
+  const syncData = useCallback(async () => {
+    if (syncingRef.current) return;
+    syncingRef.current = true;
+    setSyncing(true);
+    try {
+      const data = await loadUserData(location.id);
+      const rawNotes = data.notes as Record<string, string>;
+      const savedGenerated: Study[] = rawNotes._g ? JSON.parse(rawNotes._g) : [];
+      const { _g, ...cleanNotes } = rawNotes;
+      void _g;
+      setGeneratedStudies(savedGenerated);
+      setUserData({ ...data, notes: cleanNotes });
+    } finally {
+      syncingRef.current = false;
+      setSyncing(false);
+    }
+  }, [location.id]);
+
+  // Auto-sync when tab becomes visible again (catches studies created on other devices)
+  useEffect(() => {
+    if (!loaded) return;
+    const handler = () => { if (document.visibilityState === "visible") syncData(); };
+    document.addEventListener("visibilitychange", handler);
+    return () => document.removeEventListener("visibilitychange", handler);
+  }, [loaded, syncData]);
 
   const persist = useCallback(async (next: UserData, generated?: Study[]) => {
     const gen = generated ?? generatedStudies;
@@ -325,6 +353,14 @@ export default function Home() {
               </button>
             </div>
           )}
+          <button
+            onClick={syncData}
+            disabled={syncing}
+            style={{ width: "100%", padding: "9px 12px", background: syncing ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, color: syncing ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.55)", fontSize: 12, fontWeight: 600, cursor: syncing ? "default" : "pointer", marginBottom: 6, fontFamily: "Arial, sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+          >
+            <span style={{ display: "inline-block", animation: syncing ? "spin 1s linear infinite" : "none" }}>↺</span>
+            {syncing ? "Syncing..." : "Sync Studies"}
+          </button>
           <button className="dark-toggle" onClick={() => setDark(d => !d)}>
             {dark ? "☀️" : "🌙"} {dark ? "Light Mode" : "Dark Mode"}
           </button>
