@@ -1,8 +1,9 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { STUDIES } from "@/lib/studies";
 import { LOCATIONS } from "@/lib/locations";
-import { loadUserData } from "@/lib/supabase";
+import { loadUserData, loadStudies } from "@/lib/supabase";
+import type { StudyStore } from "@/lib/supabase";
 import { UserData } from "@/lib/types";
 
 interface LocationStats {
@@ -19,16 +20,16 @@ interface LocationStats {
   topSeries: string | null;
 }
 
-function computeStats(locationId: string, userData: UserData): Omit<LocationStats, "name" | "color" | "city"> {
+function computeStats(
+  locationId: string,
+  userData: UserData,
+  store: StudyStore
+): Omit<LocationStats, "name" | "color" | "city"> {
   const loc = LOCATIONS.find(l => l.id === locationId)!;
   const builtIn = loc.hasBuiltInStudies ? STUDIES : [];
-  const generated = (() => {
-    try {
-      const raw = (userData.notes as Record<string, string>)._g;
-      return raw ? JSON.parse(raw) : [];
-    } catch { return []; }
-  })();
-  const allStudies = [...generated, ...builtIn, ...userData.drafts];
+  const hidden = new Set(store.hiddenIds);
+  const allStudies = [...store.studies, ...builtIn, ...userData.drafts]
+    .filter(s => !hidden.has(String(s.id)));
   const published = allStudies.filter(s => !s.draft);
 
   const attendVals = Object.values(userData.attendance).filter(Boolean) as number[];
@@ -60,29 +61,53 @@ function computeStats(locationId: string, userData: UserData): Omit<LocationStat
 export default function LocationDashboard() {
   const [stats, setStats] = useState<LocationStats[]>([]);
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
 
-  useEffect(() => {
+  const load = useCallback(() => {
+    setLoading(true);
+    setFailed(false);
     Promise.all(
       LOCATIONS.map(async (loc) => {
-        const userData = await loadUserData(loc.id);
+        const [userData, store] = await Promise.all([
+          loadUserData(loc.id),
+          loadStudies(loc.id),
+        ]);
         return {
-          ...computeStats(loc.id, userData),
+          ...computeStats(loc.id, userData, store),
           name: loc.name,
           color: loc.color,
           city: loc.city,
         };
       })
-    ).then(results => {
-      setStats(results);
-      setLoading(false);
-    });
+    )
+      .then(results => setStats(results))
+      // Without this the spinner never clears on a dropped connection.
+      .catch(() => setFailed(true))
+      .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => { load(); }, [load]);
 
   if (loading) {
     return (
       <div style={{ textAlign: "center", padding: "60px 20px", color: "var(--text2)", display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
         <span className="spinner" style={{ width: 24, height: 24, borderWidth: 3, borderColor: "var(--border)", borderTopColor: "var(--accent)" }} />
         Loading all locations...
+      </div>
+    );
+  }
+
+  if (failed) {
+    return (
+      <div style={{ textAlign: "center", padding: "50px 24px", color: "var(--text2)", fontFamily: "Arial, sans-serif" }}>
+        <div style={{ fontSize: 34, marginBottom: 10 }}>📡</div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text)", marginBottom: 6 }}>Couldn&apos;t load the other locations</div>
+        <p style={{ fontSize: 13, lineHeight: 1.6, maxWidth: 300, margin: "0 auto 18px" }}>
+          This needs a connection. Check your signal and try again.
+        </p>
+        <button onClick={load} style={{ padding: "10px 20px", background: "var(--primary)", color: "#fff", border: "none", borderRadius: 9, fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
+          Try Again
+        </button>
       </div>
     );
   }

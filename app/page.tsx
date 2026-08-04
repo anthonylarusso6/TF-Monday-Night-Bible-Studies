@@ -1,8 +1,9 @@
 "use client";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { STUDIES } from "@/lib/studies";
-import { loadUserData, saveUserData } from "@/lib/supabase";
+import { loadUserData, saveUserData, loadStudies, saveStudies } from "@/lib/supabase";
 import { Study, UserData } from "@/lib/types";
+import type { StudyStore } from "@/lib/supabase";
 import { LOCATIONS, Location } from "@/lib/locations";
 import { getSession, clearSession, CoachSession } from "@/lib/coaches";
 import StudyGrid from "@/components/StudyGrid";
@@ -71,28 +72,27 @@ export default function Home() {
     setSession(coachSession);
     setSessionLoaded(true);
 
-    const savedDark = localStorage.getItem("tf_dark") === "true";
-    const savedGoal = parseInt(localStorage.getItem("tf_goal") || "20");
-    const savedHidden: string[] = JSON.parse(localStorage.getItem("tf_hidden") || "[]");
+    // Dark mode stays device-local on purpose — a coach's phone and laptop can
+    // reasonably differ. Everything else is shared via Supabase.
+    setDark(localStorage.getItem("tf_dark") === "true");
     // If coach has a location, use it; otherwise fall back to saved
     const savedLocationId = coachSession?.locationId || localStorage.getItem("tf_location") || LOCATIONS[0].id;
-    const savedLocation = LOCATIONS.find(l => l.id === savedLocationId) || LOCATIONS[0];
-    setDark(savedDark);
-    setAttendanceGoal(savedGoal);
-    setGoalInput(String(savedGoal));
-    setHiddenIds(new Set(savedHidden));
-    setLocation(savedLocation);
+    setLocation(LOCATIONS.find(l => l.id === savedLocationId) || LOCATIONS[0]);
 
-    loadUserData(savedLocationId).then((data) => {
-      const rawNotes = data.notes as Record<string, string>;
-      const savedGenerated: Study[] = rawNotes._g ? JSON.parse(rawNotes._g) : [];
-      const { _g, ...cleanNotes } = rawNotes;
-      void _g;
-      setGeneratedStudies(savedGenerated);
-      setUserData({ ...data, notes: cleanNotes });
-      setLoaded(true);
-    });
+    Promise.all([loadUserData(savedLocationId), loadStudies(savedLocationId)])
+      .then(([data, store]) => {
+        setUserData(data);
+        applyStore(store);
+        setLoaded(true);
+      });
   }, []);
+
+  function applyStore(store: StudyStore) {
+    setGeneratedStudies(store.studies);
+    setHiddenIds(new Set(store.hiddenIds));
+    setAttendanceGoal(store.goal);
+    setGoalInput(String(store.goal));
+  }
 
   useEffect(() => {
     if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
@@ -115,13 +115,12 @@ export default function Home() {
     syncingRef.current = true;
     setSyncing(true);
     try {
-      const data = await loadUserData(location.id);
-      const rawNotes = data.notes as Record<string, string>;
-      const savedGenerated: Study[] = rawNotes._g ? JSON.parse(rawNotes._g) : [];
-      const { _g, ...cleanNotes } = rawNotes;
-      void _g;
-      setGeneratedStudies(savedGenerated);
-      setUserData({ ...data, notes: cleanNotes });
+      const [data, store] = await Promise.all([
+        loadUserData(location.id),
+        loadStudies(location.id),
+      ]);
+      setUserData(data);
+      applyStore(store);
     } finally {
       syncingRef.current = false;
       setSyncing(false);
@@ -136,25 +135,35 @@ export default function Home() {
     return () => document.removeEventListener("visibilitychange", handler);
   }, [loaded, syncData]);
 
-  const persist = useCallback(async (next: UserData, generated?: Study[]) => {
-    const gen = generated ?? generatedStudies;
-    const notesWithGen = { ...next.notes, _g: JSON.stringify(gen) };
+  /** Saves likes / notes / attendance / drafts. Small payload, written often. */
+  const persist = useCallback(async (next: UserData) => {
     setUserData(next);
-    await saveUserData({ ...next, notes: notesWithGen }, location.id);
-  }, [generatedStudies, location.id]);
+    const ok = await saveUserData(next, location.id);
+    if (!ok) showToast("Couldn't reach the server — saved on this device only.");
+  }, [location.id]);
+
+  /** Saves the study library and shared settings. Only call when they change. */
+  const persistStudies = useCallback(async (
+    patch: Partial<StudyStore>,
+    current?: { studies?: Study[]; hiddenIds?: Set<string>; goal?: number }
+  ) => {
+    const store: StudyStore = {
+      studies: patch.studies ?? current?.studies ?? generatedStudies,
+      hiddenIds: patch.hiddenIds ?? [...(current?.hiddenIds ?? hiddenIds)],
+      goal: patch.goal ?? current?.goal ?? attendanceGoal,
+    };
+    const ok = await saveStudies(store, location.id);
+    if (!ok) showToast("Couldn't reach the server — saved on this device only.");
+  }, [generatedStudies, hiddenIds, attendanceGoal, location.id]);
 
   async function switchLocation(loc: Location) {
     setLoaded(false);
     setLocation(loc);
     setLocationPickerOpen(false);
     localStorage.setItem("tf_location", loc.id);
-    const data = await loadUserData(loc.id);
-    const rawNotes = data.notes as Record<string, string>;
-    const savedGenerated: Study[] = rawNotes._g ? JSON.parse(rawNotes._g) : [];
-    const { _g, ...cleanNotes } = rawNotes;
-    void _g;
-    setGeneratedStudies(savedGenerated);
-    setUserData({ ...data, notes: cleanNotes });
+    const [data, store] = await Promise.all([loadUserData(loc.id), loadStudies(loc.id)]);
+    setUserData(data);
+    applyStore(store);
     setLoaded(true);
     showToast(`Switched to ${loc.name}`);
   }
@@ -166,7 +175,7 @@ export default function Home() {
   ].filter((s) => !hiddenIds.has(String(s.id)));
 
   const openStudy = openStudyId != null
-    ? [...generatedStudies, ...STUDIES, ...userData.drafts].find((s) => String(s.id) === String(openStudyId)) ?? null
+    ? allStudies.find((s) => String(s.id) === String(openStudyId)) ?? null
     : null;
 
   async function toggleLike(id: string | number) {
@@ -198,18 +207,17 @@ export default function Home() {
   async function handleDeleteStudy(id: string | number) {
     const sid = String(id);
     const updatedGen = generatedStudies.filter((s) => String(s.id) !== sid);
-    setGeneratedStudies(updatedGen);
     const nextHidden = new Set(hiddenIds);
     nextHidden.add(sid);
+    setGeneratedStudies(updatedGen);
     setHiddenIds(nextHidden);
-    localStorage.setItem("tf_hidden", JSON.stringify([...nextHidden]));
-    await persist(userData, updatedGen);
+    await persistStudies({ studies: updatedGen, hiddenIds: [...nextHidden] });
     showToast("Study removed.");
   }
   async function handleStudyCreated(study: Study) {
     const updated = [study, ...generatedStudies];
     setGeneratedStudies(updated);
-    await persist(userData, updated);
+    await persistStudies({ studies: updated });
     changeTab("all");
   }
 
@@ -219,7 +227,12 @@ export default function Home() {
   }
   function saveGoal() {
     const n = parseInt(goalInput);
-    if (!isNaN(n) && n > 0) { setAttendanceGoal(n); localStorage.setItem("tf_goal", String(n)); }
+    if (!isNaN(n) && n > 0 && n !== attendanceGoal) {
+      setAttendanceGoal(n);
+      persistStudies({ goal: n });
+    } else if (isNaN(n) || n <= 0) {
+      setGoalInput(String(attendanceGoal)); // reject junk, keep the old goal
+    }
     setEditingGoal(false);
   }
 

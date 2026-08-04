@@ -270,7 +270,7 @@ h1{font-size:22px;text-align:center;margin-bottom:4px}.th{font-size:13px;text-al
           <div className="sec">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
               <div className="sec-label" style={{ margin: 0 }}>Attendance</div>
-              <button onClick={() => setShowTimer(true)} style={{ background: "var(--primary)", color: "white", border: "none", borderRadius: 8, padding: "6px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 5 }}>⏱ Start Timer</button>
+              <button onClick={() => setShowTimer(true)} style={{ background: "var(--primary)", color: "white", border: "none", borderRadius: 9, padding: "10px 16px", minHeight: 44, fontSize: 13.5, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>⏱ Start Timer</button>
             </div>
             {/* Big clicker */}
             <div style={{ display: "flex", alignItems: "center", gap: 0, background: "var(--bg)", borderRadius: 12, border: "1.5px solid var(--border)", overflow: "hidden", marginBottom: 10 }}>
@@ -283,7 +283,7 @@ h1{font-size:22px;text-align:center;margin-bottom:4px}.th{font-size:13px;text-al
             </div>
             <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
               {[5,10,15,20].map(n => (
-                <button key={n} onClick={() => setAttend(String(n))} style={{ flex: 1, padding: "5px 0", background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12, fontWeight: 600, color: "var(--text2)", cursor: "pointer" }}>+{n}</button>
+                <button key={n} onClick={() => setAttend(String(n))} style={{ flex: 1, padding: "12px 0", minHeight: 44, background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 9, fontSize: 14, fontWeight: 700, color: "var(--text2)", cursor: "pointer" }}>+{n}</button>
               ))}
             </div>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -297,7 +297,7 @@ h1{font-size:22px;text-align:center;margin-bottom:4px}.th{font-size:13px;text-al
             <div className="sec-label">Session Rating</div>
             <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
               {[1,2,3,4,5].map(n => (
-                <button key={n} onClick={() => setRatingStars(n)} style={{ fontSize: 24, background: "none", border: "none", cursor: "pointer", opacity: n <= ratingStars ? 1 : 0.25, transition: "opacity 0.1s", padding: "2px 4px" }}>⭐</button>
+                <button key={n} onClick={() => setRatingStars(n)} style={{ fontSize: 27, background: "none", border: "none", cursor: "pointer", opacity: n <= ratingStars ? 1 : 0.25, transition: "opacity 0.1s", padding: "6px 8px", minWidth: 44, minHeight: 44 }}>⭐</button>
               ))}
             </div>
             <input className="form-input" style={{ marginBottom: 8 }} placeholder="What hit with the students?" value={ratingHit} onChange={e => setRatingHit(e.target.value)} />

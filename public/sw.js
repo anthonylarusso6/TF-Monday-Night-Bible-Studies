@@ -1,4 +1,4 @@
-const CACHE = 'tf-bible-v5';
+const CACHE = 'tf-bible-v6';
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();

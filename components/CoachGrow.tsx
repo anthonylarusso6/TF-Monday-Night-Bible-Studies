@@ -179,8 +179,8 @@ export default function CoachGrow({ latestStudy, allStudies, userData, attendanc
         <div style={{ flex: 1, minWidth: 0 }}>
           {editingProfile ? (
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-              <input className="form-input" style={{ flex: 1, minWidth: 120, padding: "7px 10px", fontSize: 14 }} placeholder="Your name" value={profileName} onChange={e => setProfileName(e.target.value)} autoFocus onKeyDown={e => e.key === "Enter" && saveProfile()} />
-              <select className="form-select" style={{ width: "auto", padding: "7px 10px", fontSize: 13 }} value={profileRole} onChange={e => setProfileRole(e.target.value)}>
+              <input className="form-input" style={{ flex: 1, minWidth: 120 }} placeholder="Your name" value={profileName} onChange={e => setProfileName(e.target.value)} autoFocus onKeyDown={e => e.key === "Enter" && saveProfile()} />
+              <select className="form-select" style={{ width: "auto" }} value={profileRole} onChange={e => setProfileRole(e.target.value)}>
                 <option>Head Coach</option>
                 <option>Assistant Coach</option>
                 <option>Volunteer</option>
@@ -202,7 +202,7 @@ export default function CoachGrow({ latestStudy, allStudies, userData, attendanc
       {/* Section nav */}
       <div style={{ display: "flex", gap: 6, marginBottom: 20, flexWrap: "wrap" }}>
         {SECTIONS.map(s => (
-          <button key={s.id} onClick={() => setSection(s.id)} style={{ padding: "8px 14px", borderRadius: 20, border: `1.5px solid ${section === s.id ? "var(--accent)" : "var(--border)"}`, background: section === s.id ? "rgba(26,138,181,0.1)" : "var(--card)", color: section === s.id ? "var(--accent)" : "var(--text2)", fontSize: 12.5, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 5, WebkitTapHighlightColor: "transparent" }}>
+          <button key={s.id} onClick={() => setSection(s.id)} style={{ padding: "11px 15px", minHeight: 44, borderRadius: 22, border: `1.5px solid ${section === s.id ? "var(--accent)" : "var(--border)"}`, background: section === s.id ? "rgba(26,138,181,0.1)" : "var(--card)", color: section === s.id ? "var(--accent)" : "var(--text2)", fontSize: 12.5, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 5, WebkitTapHighlightColor: "transparent" }}>
             {s.icon} {s.label}
           </button>
         ))}
@@ -265,7 +265,7 @@ export default function CoachGrow({ latestStudy, allStudies, userData, attendanc
 
           {/* Daily verse */}
           <div style={{ background: "linear-gradient(135deg,var(--primary),#1a6a8e)", borderRadius: "var(--radius)", padding: "16px 18px", color: "white" }}>
-            <div style={{ fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: 2, opacity: 0.6, marginBottom: 8 }}>Today&apos;s Verse</div>
+            <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: "uppercase", letterSpacing: 2, opacity: 0.6, marginBottom: 8 }}>Today&apos;s Verse</div>
             <p style={{ fontSize: 14, lineHeight: 1.7, fontFamily: "Georgia, serif", fontStyle: "italic", marginBottom: 8 }}>&ldquo;{dailyVerse.text}&rdquo;</p>
             <div style={{ fontSize: 12, fontWeight: 700, opacity: 0.7 }}>{dailyVerse.ref}</div>
           </div>
@@ -321,7 +321,7 @@ export default function CoachGrow({ latestStudy, allStudies, userData, attendanc
                     <p style={{ fontSize: 13.5, lineHeight: 1.65, fontFamily: "Georgia, serif" }}>{prepGuide.watchFor}</p>
                   </div>
                   <div style={{ background: "linear-gradient(135deg,var(--primary),#1a6a8e)", borderRadius: "var(--radius)", padding: "16px 18px", color: "white" }}>
-                    <div style={{ fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1.5, opacity: 0.7, marginBottom: 8 }}>⚡ Your Personal Challenge This Week</div>
+                    <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1.5, opacity: 0.7, marginBottom: 8 }}>⚡ Your Personal Challenge This Week</div>
                     <p style={{ fontSize: 14, lineHeight: 1.7, fontFamily: "Georgia, serif", fontStyle: "italic" }}>{prepGuide.closingChallenge}</p>
                   </div>
                 </div>
@@ -367,7 +367,7 @@ export default function CoachGrow({ latestStudy, allStudies, userData, attendanc
               </div>
               <div style={{ display: "flex", gap: 8 }}>
                 <button className="save-btn" onClick={saveVerse} disabled={!verseRef.trim() || !verseText.trim()}>Set Season Verse</button>
-                {seasonVerse && <button onClick={() => setEditingVerse(false)} style={{ padding: "8px 14px", background: "none", border: "1px solid var(--border)", borderRadius: 8, fontSize: 13, cursor: "pointer", color: "var(--text2)" }}>Cancel</button>}
+                {seasonVerse && <button onClick={() => setEditingVerse(false)} style={{ padding: "11px 16px", minHeight: 44, background: "none", border: "1px solid var(--border)", borderRadius: 9, fontSize: 13, cursor: "pointer", color: "var(--text2)" }}>Cancel</button>}
               </div>
             </div>
           )}
@@ -409,7 +409,7 @@ export default function CoachGrow({ latestStudy, allStudies, userData, attendanc
                   <p key={i} style={{ fontSize: 14.5, lineHeight: 1.8, fontFamily: "Georgia, serif", marginBottom: 14 }}>{para}</p>
                 ))}
                 <div style={{ background: "linear-gradient(135deg,var(--primary),#1a6a8e)", borderRadius: 10, padding: "14px 16px", color: "white", marginTop: 6 }}>
-                  <div style={{ fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1.5, opacity: 0.7, marginBottom: 6 }}>⚡ This Week&apos;s Challenge</div>
+                  <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1.5, opacity: 0.7, marginBottom: 6 }}>⚡ This Week&apos;s Challenge</div>
                   <p style={{ fontSize: 13.5, lineHeight: 1.65, fontFamily: "Georgia, serif", fontStyle: "italic" }}>{selectedPrinciple.challenge}</p>
                 </div>
               </div>
