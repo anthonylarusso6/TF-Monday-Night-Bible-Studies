@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Coach, loadCoaches, saveCoaches, addCoach, removeCoach, ROLES, LOCATIONS } from "@/lib/coaches";
+import { Coach, loadCoaches, replaceCoaches, addCoach, removeCoach, ROLES, LOCATIONS } from "@/lib/coaches";
 import { CoachSession } from "@/lib/coaches";
 
 interface AdminPanelProps {
@@ -22,9 +22,14 @@ export default function AdminPanel({ session }: AdminPanelProps) {
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState("");
+  const [offline, setOffline] = useState(false);
 
   useEffect(() => {
-    loadCoaches().then(list => { setCoaches(list); setLoading(false); });
+    loadCoaches().then(({ ok, coaches: list }) => {
+      setCoaches(list);
+      setOffline(!ok);
+      setLoading(false);
+    });
   }, []);
 
   function showToast(msg: string) {
@@ -53,10 +58,14 @@ export default function AdminPanel({ session }: AdminPanelProps) {
       setError("A coach with that name already exists."); return;
     }
     setError(""); setSaving(true);
-    const newCoach = await addCoach({ name: name.trim(), pin, role, locationId });
-    setCoaches(prev => [...prev, newCoach]);
-    setView("list");
-    showToast(`${newCoach.name} added!`);
+    try {
+      const newCoach = await addCoach({ name: name.trim(), pin, role, locationId });
+      setCoaches(prev => [...prev, newCoach]);
+      setView("list");
+      showToast(`${newCoach.name} added!`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't add the coach.");
+    }
     setSaving(false);
   }
 
@@ -66,24 +75,40 @@ export default function AdminPanel({ session }: AdminPanelProps) {
     if (pin && pin.length !== 4) { setError("PIN must be 4 digits."); return; }
     if (pin && pin !== confirmPin) { setError("PINs don't match."); return; }
     setError(""); setSaving(true);
-    const updated = coaches.map(c =>
+    // Re-read first: writing our in-memory list back could otherwise drop a
+    // coach another device added since this panel loaded.
+    const { ok, coaches: fresh } = await loadCoaches();
+    if (!ok) {
+      setError("Can't reach the server right now. Try again in a moment.");
+      setSaving(false);
+      return;
+    }
+    const updated = fresh.map(c =>
       c.id === editingCoach.id
         ? { ...c, name: name.trim(), role, locationId, ...(pin ? { pin } : {}) }
         : c
     );
-    await saveCoaches(updated);
-    setCoaches(updated);
-    setView("list");
-    showToast("Coach updated!");
+    try {
+      await replaceCoaches(updated);
+      setCoaches(updated);
+      setView("list");
+      showToast("Coach updated!");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't save changes.");
+    }
     setSaving(false);
   }
 
   async function handleDelete(coach: Coach) {
     if (coach.id === session.coachId) { showToast("You can't delete yourself."); return; }
     if (!confirm(`Remove ${coach.name}? They won't be able to log in.`)) return;
-    await removeCoach(coach.id);
-    setCoaches(prev => prev.filter(c => c.id !== coach.id));
-    showToast(`${coach.name} removed.`);
+    try {
+      await removeCoach(coach.id);
+      setCoaches(prev => prev.filter(c => c.id !== coach.id));
+      showToast(`${coach.name} removed.`);
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : "Couldn't remove the coach.");
+    }
   }
 
   if (loading) return (
@@ -99,6 +124,13 @@ export default function AdminPanel({ session }: AdminPanelProps) {
         </p>
       </div>
 
+      {offline && (
+        <div style={{ background: "#fdf6e7", border: "1px solid #f0dcb0", borderRadius: 10, padding: "11px 14px", marginBottom: 16, fontSize: 13, color: "#92652a", fontFamily: "Arial, sans-serif", lineHeight: 1.55 }}>
+          <b>Offline.</b> This is your saved coach list. Adding or changing coaches
+          needs a connection so nobody gets overwritten.
+        </div>
+      )}
+
       {/* ── Coach list ── */}
       {view === "list" && (
         <div>
@@ -106,7 +138,7 @@ export default function AdminPanel({ session }: AdminPanelProps) {
             <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1.5, color: "var(--text2)" }}>
               {coaches.length} Coach{coaches.length !== 1 ? "es" : ""} Registered
             </div>
-            <button onClick={startAdd} style={{ padding: "8px 16px", background: "var(--primary)", color: "white", border: "none", borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+            <button onClick={startAdd} disabled={offline} style={{ padding: "11px 16px", minHeight: 44, background: offline ? "var(--border)" : "var(--primary)", color: offline ? "var(--text2)" : "white", border: "none", borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: offline ? "not-allowed" : "pointer" }}>
               ＋ Add Coach
             </button>
           </div>

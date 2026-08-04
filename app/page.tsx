@@ -285,6 +285,19 @@ export default function Home() {
         )}
       </div>
 
+      {/* Sits with the location switcher rather than in the footer — on a phone
+          the footer is below twelve nav items and needs scrolling to reach. */}
+      <div style={{ padding: "8px 12px 2px" }}>
+        <button
+          onClick={syncData}
+          disabled={syncing}
+          style={{ width: "100%", minHeight: 40, padding: "9px 12px", background: syncing ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, color: syncing ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.55)", fontSize: 12, fontWeight: 600, cursor: syncing ? "default" : "pointer", fontFamily: "Arial, sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, WebkitTapHighlightColor: "transparent" }}
+        >
+          <span style={{ display: "inline-block", animation: syncing ? "spin 1s linear infinite" : "none" }}>↺</span>
+          {syncing ? "Syncing..." : "Sync Studies"}
+        </button>
+      </div>
+
       <div className="sidebar-section">Library</div>
       {NAV.filter(n => n.section === "library").map((item) => (
         <button key={item.id} className={`sidebar-item${tab === item.id ? " active" : ""}`} onClick={() => changeTab(item.id)}>
@@ -366,14 +379,6 @@ export default function Home() {
               </button>
             </div>
           )}
-          <button
-            onClick={syncData}
-            disabled={syncing}
-            style={{ width: "100%", padding: "9px 12px", background: syncing ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, color: syncing ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.55)", fontSize: 12, fontWeight: 600, cursor: syncing ? "default" : "pointer", marginBottom: 6, fontFamily: "Arial, sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
-          >
-            <span style={{ display: "inline-block", animation: syncing ? "spin 1s linear infinite" : "none" }}>↺</span>
-            {syncing ? "Syncing..." : "Sync Studies"}
-          </button>
           <button className="dark-toggle" onClick={() => setDark(d => !d)}>
             {dark ? "☀️" : "🌙"} {dark ? "Light Mode" : "Dark Mode"}
           </button>

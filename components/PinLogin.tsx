@@ -9,7 +9,7 @@ interface PinLoginProps {
   onLogin: (session: CoachSession) => void;
 }
 
-type View = "name" | "pin" | "setup" | "addCoach";
+type View = "name" | "pin" | "setup" | "addCoach" | "offline";
 
 export default function PinLogin({ onLogin }: PinLoginProps) {
   const [view, setView] = useState<View>("name");
@@ -20,6 +20,7 @@ export default function PinLogin({ onLogin }: PinLoginProps) {
   const [error, setError] = useState("");
   const [shake, setShake] = useState(false);
   const [verifying, setVerifying] = useState(false);
+  const [offline, setOffline] = useState(false);
 
   // Add coach form
   const [newName, setNewName] = useState("");
@@ -29,13 +30,21 @@ export default function PinLogin({ onLogin }: PinLoginProps) {
   const [confirmPin, setConfirmPin] = useState("");
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    loadCoaches().then(list => {
+  const fetchCoaches = () => {
+    setLoading(true);
+    loadCoaches().then(({ ok, coaches: list }) => {
       setCoaches(list);
-      setView(list.length === 0 ? "setup" : "name");
+      setOffline(!ok);
+      // Only offer first-time setup when the server actually confirmed the
+      // registry is empty. A failed read used to land here and invite a coach to
+      // "set up the first account", which would have wiped everyone else.
+      if (list.length > 0) setView("name");
+      else setView(ok ? "setup" : "offline");
       setLoading(false);
     });
-  }, []);
+  };
+
+  useEffect(() => { fetchCoaches(); }, []);
 
   // Auto-verify when 4 digits entered
   useEffect(() => {
@@ -68,14 +77,22 @@ export default function PinLogin({ onLogin }: PinLoginProps) {
     if (!newName.trim()) { setError("Enter a name."); return; }
     if (newPin.length !== 4) { setError("PIN must be 4 digits."); return; }
     if (newPin !== confirmPin) { setError("PINs don't match."); return; }
+    if (coaches.some(c => c.name.toLowerCase() === newName.trim().toLowerCase())) {
+      setError("A coach with that name already exists."); return;
+    }
     setError(""); setSaving(true);
-    const coach = await addCoach({ name: newName.trim(), pin: newPin, role: newRole, locationId: newLocation });
-    const updated = [...coaches, coach];
-    setCoaches(updated);
-    // Auto login as the new coach
-    const session: CoachSession = { coachId: coach.id, name: coach.name, role: coach.role, locationId: coach.locationId };
-    setSession(session);
-    onLogin(session);
+    try {
+      const coach = await addCoach({ name: newName.trim(), pin: newPin, role: newRole, locationId: newLocation });
+      setCoaches([...coaches, coach]);
+      // Auto login as the new coach
+      const session: CoachSession = { coachId: coach.id, name: coach.name, role: coach.role, locationId: coach.locationId };
+      setSession(session);
+      onLogin(session);
+    } catch (e) {
+      // Typed input is preserved so nothing has to be re-entered.
+      setError(e instanceof Error ? e.message : "Couldn't create the account. Try again.");
+      setSaving(false);
+    }
   }
 
   function tapPin(digit: string) {
@@ -106,6 +123,19 @@ export default function PinLogin({ onLogin }: PinLoginProps) {
         </div>
 
         <div style={{ background: "white", borderRadius: 20, padding: 28 }}>
+
+          {/* ── Can't reach the server ── */}
+          {view === "offline" && (
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 40, marginBottom: 10 }}>📡</div>
+              <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 6, color: "#0f2530" }}>No connection</div>
+              <p style={{ fontSize: 13.5, color: "#567888", marginBottom: 20, fontFamily: "Arial, sans-serif", lineHeight: 1.6 }}>
+                Your coaches are saved — this device just can&apos;t reach them right now.
+                Check your signal and try again.
+              </p>
+              <button onClick={fetchCoaches} style={btnStyle}>Try Again</button>
+            </div>
+          )}
 
           {/* ── First time setup ── */}
           {(view === "setup" || view === "addCoach") && (
@@ -169,7 +199,13 @@ export default function PinLogin({ onLogin }: PinLoginProps) {
                   <div style={{ textAlign: "center", padding: "16px", color: "#567888", fontSize: 13, fontFamily: "Arial, sans-serif" }}>No coach found with that name.</div>
                 )}
               </div>
-              <button onClick={() => setView("addCoach")} style={ghostBtnStyle}>＋ Add New Coach</button>
+              {offline ? (
+                <div style={{ fontSize: 12, color: "#92652a", background: "#fdf6e7", border: "1px solid #f0dcb0", borderRadius: 8, padding: "9px 12px", fontFamily: "Arial, sans-serif", lineHeight: 1.5 }}>
+                  Offline — showing your saved coaches. You can still sign in.
+                </div>
+              ) : (
+                <button onClick={() => setView("addCoach")} style={ghostBtnStyle}>＋ Add New Coach</button>
+              )}
             </div>
           )}
 
