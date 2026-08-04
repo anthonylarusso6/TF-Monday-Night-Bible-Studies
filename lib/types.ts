@@ -24,6 +24,26 @@ export interface Takeaway {
   bo: string;
 }
 
+// ── Imported / section-based studies ──────────────────────────────────────────
+// Studies written outside the app (pasted in) keep their original part-by-part
+// structure here instead of being forced into the anchor/breakdown shape.
+
+export type SectionBlock =
+  | { t: "p"; tx: string }
+  | { t: "list"; items: string[]; ord?: boolean }
+  | { t: "verse"; ref: string; tx: string }
+  | { t: "def"; term: string; tx: string }
+  | { t: "q"; tx: string }
+  | { t: "table"; cols: [string, string]; rows: [string, string][] }
+  | { t: "quote"; tx: string }
+  | { t: "callout"; lb: string; tx: string };
+
+export interface StudySection {
+  h: string;
+  sub?: string;
+  blocks: SectionBlock[];
+}
+
 export interface Study {
   id: number | string;
   date: string;
@@ -37,6 +57,10 @@ export interface Study {
   sbd: SupportingBreakdown[];
   qs: DiscussionQuestion[];
   tk: Takeaway[];
+  /** Present on pasted/imported studies — renders instead of bd/sbd. */
+  sections?: StudySection[];
+  subtitle?: string;
+  imported?: boolean;
 }
 
 export interface UserData {

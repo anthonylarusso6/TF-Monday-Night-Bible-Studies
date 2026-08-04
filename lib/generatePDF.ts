@@ -5,6 +5,7 @@ const NAVY = [15, 79, 106] as const;
 const GOLD = [212, 168, 67] as const;
 const GRAY = [100, 120, 130] as const;
 const BLACK = [20, 40, 50] as const;
+const BORDER = [214, 226, 232] as const;
 
 function addWrappedText(
   doc: jsPDF,
@@ -80,8 +81,151 @@ export function generateLeaderPDF(study: Study, notes: string, attendance: numbe
   y = addWrappedText(doc, `"${study.anchor.text}"`, 18, y, W, 5);
   y += 6;
 
+  // ── Imported studies: walk the original part structure ──
+  if (study.sections?.length) {
+    for (let si = 0; si < study.sections.length; si++) {
+      const sec = study.sections[si];
+      y = checkPage(doc, y, 16);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor(...NAVY);
+      y = addWrappedText(doc, `${si + 1}.  ${sec.h}`, 18, y, W, 5.5);
+      if (sec.sub) {
+        doc.setFont("helvetica", "italic");
+        doc.setFontSize(8.5);
+        doc.setTextColor(...GRAY);
+        y = addWrappedText(doc, sec.sub, 18, y + 1, W, 4.5);
+      }
+      doc.setDrawColor(...BORDER);
+      doc.line(18, y + 1, 18 + W, y + 1);
+      y += 6;
+
+      for (const b of sec.blocks) {
+        y = checkPage(doc, y, 12);
+        switch (b.t) {
+          case "p":
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(9.5);
+            doc.setTextColor(...BLACK);
+            y = addWrappedText(doc, b.tx, 18, y, W, 5) + 3;
+            break;
+
+          case "list":
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(9);
+            doc.setTextColor(...BLACK);
+            for (let k = 0; k < b.items.length; k++) {
+              y = checkPage(doc, y, 8);
+              const bullet = b.ord ? `${k + 1}.` : "•";
+              y = addWrappedText(doc, `${bullet}  ${b.items[k]}`, 24, y, W - 8, 5);
+            }
+            y += 3;
+            break;
+
+          case "verse":
+            y = checkPage(doc, y, 14);
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(9);
+            doc.setTextColor(...NAVY);
+            doc.text(b.ref, 18, y);
+            y += 5;
+            doc.setFont("helvetica", "italic");
+            doc.setTextColor(...BLACK);
+            y = addWrappedText(doc, `"${b.tx}"`, 18, y, W, 5) + 4;
+            break;
+
+          case "def":
+            y = checkPage(doc, y, 10);
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(9.5);
+            doc.setTextColor(...NAVY);
+            y = addWrappedText(doc, b.term, 18, y, W, 5);
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(9);
+            doc.setTextColor(...BLACK);
+            y = addWrappedText(doc, b.tx, 18, y, W, 5) + 3;
+            break;
+
+          case "q": {
+            const qLines = doc.splitTextToSize(b.tx, W - 14);
+            y = checkPage(doc, y, qLines.length * 5 + 14);
+            doc.setFillColor(238, 246, 250);
+            doc.roundedRect(18, y - 2, W, qLines.length * 5 + 11, 2, 2, "F");
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(7.5);
+            doc.setTextColor(...NAVY);
+            doc.text("DISCUSSION", 22, y + 3);
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(9.5);
+            doc.setTextColor(...BLACK);
+            y = addWrappedText(doc, b.tx, 22, y + 8, W - 10, 5) + 5;
+            break;
+          }
+
+          case "table":
+            y = checkPage(doc, y, 14);
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(7.5);
+            doc.setTextColor(...GRAY);
+            doc.text(b.cols[0].toUpperCase(), 18, y);
+            doc.text(b.cols[1].toUpperCase(), 18 + W / 2.6, y);
+            y += 4;
+            for (const row of b.rows) {
+              const lh = 4.6;
+              const leftLines = doc.splitTextToSize(row[0], W / 2.6 - 6);
+              const rightLines = doc.splitTextToSize(row[1], W - W / 2.6 - 4);
+              const rowH = Math.max(leftLines.length, rightLines.length) * lh + 3;
+              y = checkPage(doc, y, rowH + 4);
+              doc.setDrawColor(...BORDER);
+              doc.line(18, y - 2, 18 + W, y - 2);
+              doc.setFont("helvetica", "normal");
+              doc.setFontSize(8.5);
+              doc.setTextColor(...GRAY);
+              doc.text(leftLines, 18, y + 2);
+              doc.setTextColor(...BLACK);
+              doc.text(rightLines, 18 + W / 2.6, y + 2);
+              y += rowH;
+            }
+            y += 4;
+            break;
+
+          case "quote": {
+            const qtLines = doc.splitTextToSize(b.tx, W - 12);
+            y = checkPage(doc, y, qtLines.length * 5 + 10);
+            doc.setFillColor(247, 249, 250);
+            doc.roundedRect(18, y - 2, W, qtLines.length * 5 + 8, 2, 2, "F");
+            doc.setFillColor(...NAVY);
+            doc.rect(18, y - 2, 1.2, qtLines.length * 5 + 8, "F");
+            doc.setFont("helvetica", "italic");
+            doc.setFontSize(9.5);
+            doc.setTextColor(...BLACK);
+            y = addWrappedText(doc, b.tx, 23, y + 3, W - 10, 5) + 5;
+            break;
+          }
+
+          case "callout": {
+            const cLines = doc.splitTextToSize(b.tx, W - 14);
+            y = checkPage(doc, y, cLines.length * 5 + 14);
+            doc.setFillColor(255, 250, 230);
+            doc.roundedRect(18, y - 2, W, cLines.length * 5 + 10, 2, 2, "F");
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(7.5);
+            doc.setTextColor(...GOLD);
+            doc.text(b.lb.toUpperCase(), 22, y + 3);
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(9);
+            doc.setTextColor(60, 60, 60);
+            y = addWrappedText(doc, b.tx, 22, y + 8, W - 10, 5) + 4;
+            break;
+          }
+        }
+      }
+      y += 4;
+    }
+  }
+
   // ── Verse Breakdown ──
-  if (study.bd?.length) {
+  if (!study.sections?.length && study.bd?.length) {
     y = checkPage(doc, y);
     y = sectionLabel(doc, "Verse Breakdown", y);
     for (const b of study.bd) {
@@ -118,7 +262,7 @@ export function generateLeaderPDF(study: Study, notes: string, attendance: numbe
   }
 
   // ── Supporting Verses ──
-  if (study.sup?.length) {
+  if (!study.sections?.length && study.sup?.length) {
     y = checkPage(doc, y);
     y = sectionLabel(doc, "Supporting Verses", y);
     for (let i = 0; i < study.sup.length; i++) {

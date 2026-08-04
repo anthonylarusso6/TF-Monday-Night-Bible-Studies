@@ -215,6 +215,34 @@ body.dark .callout b { color: var(--gold); }
 .takeaway { background: var(--bg); border: 1px solid var(--border); border-left: 3px solid var(--primary); border-radius: 0 10px 10px 0; padding: 12px 14px; margin-bottom: 8px; }
 .takeaway b { display: block; font-size: 14px; margin-bottom: 3px; }
 .takeaway span { font-size: 13px; color: var(--text2); line-height: 1.55; font-family: Georgia, serif; }
+/* ── Imported studies: part-by-part sections ─────────────────────────────── */
+.modal-subtitle { font-size: 13.5px; color: var(--text2); line-height: 1.55; margin: -12px 0 20px; font-family: Georgia, serif; font-style: italic; }
+.part-head { display: flex; align-items: flex-start; gap: 11px; margin: 0 0 13px; padding-bottom: 11px; border-bottom: 1px solid var(--border); }
+.part-num { flex-shrink: 0; width: 25px; height: 25px; border-radius: 50%; background: var(--primary); color: #fff; font-size: 11.5px; font-weight: 800; display: flex; align-items: center; justify-content: center; margin-top: 1px; }
+.part-title { font-size: 15.5px; font-weight: 800; line-height: 1.35; color: var(--text); }
+.part-sub { font-size: 12.5px; color: var(--text2); line-height: 1.5; margin-top: 3px; font-family: Georgia, serif; }
+.part-p { font-size: 14px; line-height: 1.75; color: var(--text); margin: 0 0 11px; font-family: Georgia, serif; }
+.part-list { margin: 0 0 12px; padding-left: 20px; }
+.part-list li { font-size: 13.5px; line-height: 1.7; color: var(--text); margin-bottom: 6px; font-family: Georgia, serif; }
+.part-list li::marker { color: var(--accent); font-weight: 700; }
+.part-list-ord { padding-left: 22px; }
+.part-def { background: var(--bg); border-left: 3px solid var(--gold); border-radius: 0 9px 9px 0; padding: 11px 14px; margin-bottom: 8px; }
+.part-def b { display: block; font-size: 13.5px; font-weight: 800; color: var(--primary); margin-bottom: 3px; }
+body.dark .part-def b { color: var(--gold); }
+.part-def span { font-size: 13.5px; line-height: 1.65; color: var(--text); font-family: Georgia, serif; }
+.part-q { display: block; background: rgba(26,138,181,0.06); border: 1px solid rgba(26,138,181,0.22); border-radius: 10px; padding: 12px 14px; margin: 12px 0; }
+body.dark .part-q { background: rgba(26,138,181,0.09); }
+.part-q-label { display: block; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; color: var(--accent); margin-bottom: 5px; }
+.part-q-text { font-size: 14px; line-height: 1.65; color: var(--text); font-weight: 600; }
+.part-table-wrap { overflow-x: auto; margin: 12px 0; border: 1px solid var(--border); border-radius: 10px; }
+.part-table { width: 100%; border-collapse: collapse; min-width: 420px; }
+.part-table th { font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.3px; color: var(--text2); text-align: left; padding: 10px 13px; background: var(--bg); border-bottom: 1px solid var(--border); }
+.part-table td { font-size: 13px; line-height: 1.6; padding: 11px 13px; border-bottom: 1px solid var(--border); vertical-align: top; font-family: Georgia, serif; color: var(--text); }
+.part-table tr:last-child td { border-bottom: none; }
+.part-table td:first-child { color: var(--text2); width: 34%; }
+.part-table td:last-child { border-left: 1px solid var(--border); }
+.part-quote { background: var(--bg); border-left: 3px solid var(--primary); border-radius: 0 10px 10px 0; padding: 14px 16px; margin: 12px 0; font-size: 14px; line-height: 1.8; font-family: Georgia, serif; font-style: italic; color: var(--text); }
+
 .notes-area { width: 100%; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 14px; background: var(--card); color: var(--text); resize: vertical; min-height: 85px; outline: none; transition: border-color 0.13s; font-family: inherit; }
 .notes-area:focus { border-color: var(--accent); }
 .save-btn { margin-top: 7px; padding: 8px 20px; background: var(--primary); color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; transition: background 0.13s; -webkit-tap-highlight-color: transparent; }

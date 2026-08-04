@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import { jsonrepair } from "jsonrepair";
+import { generate, parseJSON } from "@/lib/gemini";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
-  const { topic, series } = await req.json();
+  const { topic } = await req.json();
 
   if (!topic) {
     return NextResponse.json({ error: "Topic is required" }, { status: 400 });
@@ -81,9 +80,16 @@ WHAT HE NEVER DOES (avoid these completely):
 - Never uses the word "utilize" or "individuals" or "facilitate"
 - Never ends a callout without landing it — always closes strong
 
+SERIES — pick the ONE that fits this topic best. Do not invent a new one:
+- "Faith & Character" — trust, obedience, discipline, temptation, integrity, self-control
+- "Identity & Worth" — who you are, comparison, perfectionism, shame, confidence, value
+- "Relationships" — friendships, family, dating, accountability, conflict, influence
+- "Heart & Posture" — gratitude, humility, loneliness, anxiety, contentment, surrender
+
 Now write the complete study on "${topic}" and return ONLY valid JSON (no markdown, no extra text):
 {
   "title": "Punchy title — specific, not generic. Should feel like something you'd see on a flyer.",
+  "series": "One of the exact four series names above",
   "bi": "4-5 sentences. Flip an assumption. Direct. No fluff. End with one short punch.",
   "anchor": {"ref": "Book Chapter:Verse (Translation)", "text": "Full verse text"},
   "sup": [
@@ -119,15 +125,11 @@ Now write the complete study on "${topic}" and return ONLY valid JSON (no markdo
 }`;
 
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-    const result = await model.generateContent(prompt);
-    const text = result.response.text();
+    const text = await generate(prompt);
 
     let studyData;
     try {
-      const clean = text.replace(/```json\n?|\n?```/g, "").trim();
-      const extracted = clean.match(/\{[\s\S]*\}/)?.[0] ?? clean;
-      studyData = JSON.parse(jsonrepair(extracted));
+      studyData = parseJSON(text);
     } catch {
       throw new Error("Could not parse AI response as JSON. Please try again.");
     }
@@ -139,9 +141,9 @@ Now write the complete study on "${topic}" and return ONLY valid JSON (no markdo
         day: "numeric",
         year: "numeric",
       }),
-      series: series || "Faith & Character",
       draft: false,
       ...studyData,
+      series: studyData.series || "Faith & Character",
     };
 
     return NextResponse.json({ study });

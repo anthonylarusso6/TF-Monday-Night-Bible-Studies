@@ -3,6 +3,7 @@ import { useRef, useState, useEffect, useCallback } from "react";
 import { Study, UserData } from "@/lib/types";
 import { generateLeaderPDF, generateStudentPDF } from "@/lib/generatePDF";
 import SessionTimer from "./SessionTimer";
+import StudySections from "./StudySections";
 import dynamic from "next/dynamic";
 const QRCodeCanvas = dynamic(() => import("qrcode").then(mod => {
   // Use qrcode to generate a data URL, render as img
@@ -159,6 +160,7 @@ h1{font-size:22px;text-align:center;margin-bottom:4px}.th{font-size:13px;text-al
 
         <div className="modal-body">
           <div className="modal-title">{study.title}</div>
+          {study.subtitle && <div className="modal-subtitle">{study.subtitle}</div>}
 
           {/* Big Idea */}
           <div className="sec">
@@ -177,8 +179,14 @@ h1{font-size:22px;text-align:center;margin-bottom:4px}.th{font-size:13px;text-al
             </div>
           )}
 
+          {/* Imported studies render their original part structure instead of
+              the breakdown / supporting-verse / question sections below. */}
+          {study.sections?.length ? (
+            <StudySections sections={study.sections} />
+          ) : null}
+
           {/* Verse Breakdown */}
-          {study.bd?.length > 0 && (
+          {!study.sections?.length && study.bd?.length > 0 && (
             <div className="sec">
               <div className="sec-label">Verse Breakdown</div>
               {study.bd.map((b, i) => (
@@ -199,7 +207,7 @@ h1{font-size:22px;text-align:center;margin-bottom:4px}.th{font-size:13px;text-al
           )}
 
           {/* Supporting Verses */}
-          {study.sup?.length > 0 && (
+          {!study.sections?.length && study.sup?.length > 0 && (
             <div className="sec">
               <div className="sec-label">Supporting Verses</div>
               {study.sup.map((v, i) => (
@@ -218,8 +226,8 @@ h1{font-size:22px;text-align:center;margin-bottom:4px}.th{font-size:13px;text-al
             </div>
           )}
 
-          {/* Discussion Questions */}
-          {study.qs?.length > 0 && (
+          {/* Discussion Questions — inline in the sections for imported studies */}
+          {!study.sections?.length && study.qs?.length > 0 && (
             <div className="sec">
               <div className="sec-label">Discussion Questions</div>
               {study.qs.map((q, i) => (
