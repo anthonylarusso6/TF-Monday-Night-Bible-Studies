@@ -446,7 +446,7 @@ export default function Home() {
                     <div className="featured-badge">⚡ Latest Study</div>
                     {latestStudy.series && <div className="featured-series">{latestStudy.series}</div>}
                     <div className="featured-title">{latestStudy.title}</div>
-                    {latestStudy.anchor?.ref && <div className="featured-verse">{latestStudy.anchor.ref} — {latestStudy.anchor.text.substring(0, 85)}...</div>}
+                    {latestStudy.anchor?.ref && <div className="featured-verse">{latestStudy.anchor.ref}{latestStudy.anchor.text ? ` — ${latestStudy.anchor.text.substring(0, 85)}...` : ""}</div>}
                     <div className="featured-footer">
                       <span className="featured-date">{latestStudy.date}</span>
                       <span className="featured-cta">Open Study →</span>

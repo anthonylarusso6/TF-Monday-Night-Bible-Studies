@@ -38,7 +38,7 @@ export default function StudyCard({ study, userData, onOpen, onToggleLike }: Stu
 
       {study.anchor?.ref && (
         <div className="card-verse">
-          {study.anchor.ref} — {study.anchor.text.substring(0, 70)}...
+          {study.anchor.ref}{study.anchor.text ? ` — ${study.anchor.text.substring(0, 70)}...` : ""}
         </div>
       )}
 

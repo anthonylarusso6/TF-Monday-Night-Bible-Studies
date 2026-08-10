@@ -9,7 +9,7 @@ export default function StudentPage() {
   const q = search.toLowerCase();
 
   const published = STUDIES.filter((s) => !s.draft && (
-    !q || s.title.toLowerCase().includes(q) || s.anchor.ref.toLowerCase().includes(q) || s.series.toLowerCase().includes(q)
+    !q || s.title.toLowerCase().includes(q) || (s.anchor.ref || "").toLowerCase().includes(q) || (s.series || "").toLowerCase().includes(q)
   ));
 
   return (

@@ -30,8 +30,8 @@ export default function StudyGrid({
       s.date.toLowerCase().includes(q) ||
       s.bi.toLowerCase().includes(q) ||
       (s.series || "").toLowerCase().includes(q) ||
-      s.anchor.ref.toLowerCase().includes(q) ||
-      s.anchor.text.toLowerCase().includes(q) ||
+      (s.anchor.ref || "").toLowerCase().includes(q) ||
+      (s.anchor.text || "").toLowerCase().includes(q) ||
       s.sup.some((v) => v.ref.toLowerCase().includes(q))
     );
   };
