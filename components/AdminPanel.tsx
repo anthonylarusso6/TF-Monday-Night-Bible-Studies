@@ -155,7 +155,7 @@ export default function AdminPanel({ session }: AdminPanelProps) {
                 <div key={coach.id} style={{ background: "var(--card)", border: `1.5px solid ${isMe ? "var(--accent)" : "var(--border)"}`, borderRadius: "var(--radius)", padding: "14px 16px", display: "flex", alignItems: "center", gap: 14 }}>
                   {/* Avatar */}
                   <div style={{ width: 42, height: 42, borderRadius: "50%", background: isMe ? "var(--accent)" : "var(--primary)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 800, color: "white", flexShrink: 0 }}>
-                    {coach.name.split(" ").map((w:string) => w[0]).join("").toUpperCase().slice(0,2)}
+                    {(coach.name || "?").split(" ").filter(Boolean).map((w:string) => w[0]).join("").toUpperCase().slice(0,2) || "?"}
                   </div>
                   {/* Info */}
                   <div style={{ flex: 1, minWidth: 0 }}>

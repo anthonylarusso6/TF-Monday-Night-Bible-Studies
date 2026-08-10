@@ -368,7 +368,7 @@ export default function Home() {
           {session && (
             <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0 8px", borderTop: "1px solid rgba(255,255,255,0.07)", marginTop: 4 }}>
               <div style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800, color: "white", flexShrink: 0 }}>
-                {session.name.split(" ").map((w:string) => w[0]).join("").toUpperCase().slice(0,2)}
+                {(session.name || "?").split(" ").filter(Boolean).map((w:string) => w[0]).join("").toUpperCase().slice(0,2) || "?"}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: "white", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{session.name}</div>

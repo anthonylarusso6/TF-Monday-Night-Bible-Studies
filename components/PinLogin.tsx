@@ -187,7 +187,7 @@ export default function PinLogin({ onLogin }: PinLoginProps) {
                   <button key={coach.id} onClick={() => { setNameInput(coach.name); setView("pin"); setPin(""); setError(""); }}
                     style={{ padding: "12px 14px", background: "#f0f7fb", border: "1.5px solid #d4e8f2", borderRadius: 10, cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 12 }}>
                     <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#0f4f6a", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800, color: "white", flexShrink: 0 }}>
-                      {coach.name.split(" ").map((w:string) => w[0]).join("").toUpperCase().slice(0,2)}
+                      {(coach.name || "?").split(" ").filter(Boolean).map((w:string) => w[0]).join("").toUpperCase().slice(0,2) || "?"}
                     </div>
                     <div>
                       <div style={{ fontSize: 14, fontWeight: 700, color: "#0f2530" }}>{coach.name}</div>
@@ -215,7 +215,7 @@ export default function PinLogin({ onLogin }: PinLoginProps) {
               <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "center", marginBottom: 6 }}>
                 <button onClick={() => { setView("name"); setPin(""); setError(""); }} style={{ background: "none", border: "none", color: "#567888", fontSize: 20, cursor: "pointer", padding: 4 }}>‹</button>
                 <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#0f4f6a", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 800, color: "white" }}>
-                  {nameInput.split(" ").map((w:string) => w[0]).join("").toUpperCase().slice(0,2)}
+                  {(nameInput || "?").split(" ").filter(Boolean).map((w:string) => w[0]).join("").toUpperCase().slice(0,2) || "?"}
                 </div>
                 <div style={{ textAlign: "left" }}>
                   <div style={{ fontSize: 15, fontWeight: 800, color: "#0f2530" }}>{nameInput}</div>
