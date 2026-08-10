@@ -4,13 +4,17 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
 export async function POST(req: NextRequest) {
-  const { topic, series } = await req.json();
+  const { topic, series, notes } = await req.json();
 
   if (!topic) {
     return NextResponse.json({ error: "Topic is required" }, { status: 400 });
   }
 
-  const prompt = `You are writing a Bible study for Anthony, who leads Monday night sessions with high school students at Triple F Sports in Knoxville TN. You have read all 13 of his previous studies and must match his voice exactly. The topic is: "${topic}".
+  const notesBlock = notes?.trim()
+    ? `\nANTHONY'S SPECIFIC NOTES FOR THIS STUDY (treat these as direct instructions — build around them):\n${notes.trim()}\n`
+    : "";
+
+  const prompt = `You are writing a Bible study for Anthony, who leads Monday night sessions with high school students at Triple F Sports in Knoxville TN. You have read all 13 of his previous studies and must match his voice exactly. The topic is: "${topic}".${notesBlock}
 
 ANTHONY'S VOICE — study these patterns and replicate them exactly:
 

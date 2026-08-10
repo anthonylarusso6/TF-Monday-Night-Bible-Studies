@@ -11,6 +11,7 @@ interface CreateStudyProps {
 export default function CreateStudy({ onStudyCreated, onToast }: CreateStudyProps) {
   const [topic, setTopic] = useState("");
   const [series, setSeries] = useState(SERIES_OPTIONS[0]);
+  const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -23,7 +24,7 @@ export default function CreateStudy({ onStudyCreated, onToast }: CreateStudyProp
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic: topic.trim(), series }),
+        body: JSON.stringify({ topic: topic.trim(), series, notes: notes.trim() }),
       });
       const data = await res.json();
       if (!res.ok || data.error) {
@@ -32,6 +33,7 @@ export default function CreateStudy({ onStudyCreated, onToast }: CreateStudyProp
         onStudyCreated(data.study);
         onToast(`"${data.study.title}" added to All Studies!`);
         setTopic("");
+        setNotes("");
       }
     } catch {
       setError("Network error. Check your connection.");
@@ -69,12 +71,34 @@ export default function CreateStudy({ onStudyCreated, onToast }: CreateStudyProp
         </select>
       </div>
 
+      <div className="form-group">
+        <label className="form-label">
+          Extra Notes <span style={{ fontWeight: 400, opacity: 0.55 }}>(optional)</span>
+        </label>
+        <textarea
+          className="form-textarea"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Specific verses you want used, a story or example to build around, a direction you want to take it, something that happened this week with the team..."
+          rows={4}
+        />
+      </div>
+
       <button className="gen-btn" onClick={handleGenerate} disabled={loading}>
         {loading && <span className="spinner" />}
         {loading ? "Generating..." : "✦ Generate Study"}
       </button>
 
-      {error && <div className="error-box">{error}</div>}
+      {error && (
+        <div className="error-box">
+          {error}
+          {error.includes("not configured") && (
+            <div style={{ marginTop: 8, fontSize: 12, opacity: 0.85 }}>
+              Add <code>GEMINI_API_KEY</code> in your Vercel project settings under Environment Variables, then redeploy.
+            </div>
+          )}
+        </div>
+      )}
 
       <div style={{ marginTop: 24, padding: "16px", background: "var(--bg)", borderRadius: 8, fontFamily: "Arial, sans-serif", fontSize: 13, color: "var(--text2)", lineHeight: 1.6 }}>
         <b style={{ display: "block", marginBottom: 6, color: "var(--text)" }}>What gets generated:</b>
