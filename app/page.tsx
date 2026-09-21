@@ -65,6 +65,9 @@ export default function Home() {
   const [goalInput, setGoalInput] = useState("20");
   const [syncing, setSyncing] = useState(false);
   const syncingRef = useRef(false);
+  // Set when a save couldn't reach the server. Loading merges local work back
+  // up, so retrying a sync is what actually clears it.
+  const [pendingUpload, setPendingUpload] = useState(false);
 
   useEffect(() => {
     // Load coach session
@@ -121,25 +124,45 @@ export default function Home() {
       ]);
       setUserData(data);
       applyStore(store);
+      // Loading merges anything this device held into the server copy, so a
+      // clean pass means nothing is stranded here any more.
+      setPendingUpload(false);
+    } catch {
+      setPendingUpload(true);
     } finally {
       syncingRef.current = false;
       setSyncing(false);
     }
   }, [location.id]);
 
-  // Auto-sync when tab becomes visible again (catches studies created on other devices)
+  // Pick up work done on another device, and push up anything stranded here.
+  // Coming back to the app and regaining signal are both worth a sync — a phone
+  // in a gym does the second one constantly.
   useEffect(() => {
     if (!loaded) return;
-    const handler = () => { if (document.visibilityState === "visible") syncData(); };
-    document.addEventListener("visibilitychange", handler);
-    return () => document.removeEventListener("visibilitychange", handler);
+    const onVisible = () => { if (document.visibilityState === "visible") syncData(); };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("online", syncData);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("online", syncData);
+    };
   }, [loaded, syncData]);
+
+  // A failed save leaves a study on one device only. Keep retrying so it lands
+  // without the coach having to know anything went wrong.
+  useEffect(() => {
+    if (!loaded || !pendingUpload) return;
+    const id = setInterval(syncData, 30000);
+    return () => clearInterval(id);
+  }, [loaded, pendingUpload, syncData]);
 
   /** Saves likes / notes / attendance / drafts. Small payload, written often. */
   const persist = useCallback(async (next: UserData) => {
     setUserData(next);
     const ok = await saveUserData(next, location.id);
-    if (!ok) showToast("Couldn't reach the server — saved on this device only.");
+    setPendingUpload(!ok);
+    if (!ok) showToast("Saved on this device — will sync when you're back online.");
   }, [location.id]);
 
   /** Saves the study library and shared settings. Only call when they change. */
@@ -153,7 +176,8 @@ export default function Home() {
       goal: patch.goal ?? current?.goal ?? attendanceGoal,
     };
     const ok = await saveStudies(store, location.id);
-    if (!ok) showToast("Couldn't reach the server — saved on this device only.");
+    setPendingUpload(!ok);
+    if (!ok) showToast("Saved on this device — will sync when you're back online.");
   }, [generatedStudies, hiddenIds, attendanceGoal, location.id]);
 
   async function switchLocation(loc: Location) {
@@ -294,8 +318,21 @@ export default function Home() {
           style={{ width: "100%", minHeight: 40, padding: "9px 12px", background: syncing ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, color: syncing ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.55)", fontSize: 12, fontWeight: 600, cursor: syncing ? "default" : "pointer", fontFamily: "Arial, sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, WebkitTapHighlightColor: "transparent" }}
         >
           <span style={{ display: "inline-block", animation: syncing ? "spin 1s linear infinite" : "none" }}>↺</span>
-          {syncing ? "Syncing..." : "Sync Studies"}
+          {syncing ? "Syncing..." : pendingUpload ? "Retry sync" : "Sync Studies"}
         </button>
+        {/* Says plainly whether the work on this device has reached the server,
+            so it never has to be taken on faith. */}
+        <div style={{
+          marginTop: 6, fontSize: 10.5, lineHeight: 1.45, fontFamily: "Arial, sans-serif",
+          color: pendingUpload ? "#e8b563" : "rgba(255,255,255,0.35)",
+          display: "flex", alignItems: "center", gap: 5,
+        }}>
+          <span style={{
+            width: 6, height: 6, borderRadius: "50%", flexShrink: 0,
+            background: pendingUpload ? "#e8b563" : "#3fb37f",
+          }} />
+          {pendingUpload ? "Not synced yet — retrying" : "Synced to all devices"}
+        </div>
       </div>
 
       <div className="sidebar-section">Library</div>
