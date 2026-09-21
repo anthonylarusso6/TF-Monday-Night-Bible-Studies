@@ -54,23 +54,32 @@ export default function PinLogin({ onLogin }: PinLoginProps) {
   async function verifyLogin() {
     setVerifying(true);
     setError("");
-    const coach = await verifyPin(nameInput, pin);
-    if (coach) {
-      const session: CoachSession = {
-        coachId: coach.id,
-        name: coach.name,
-        role: coach.role,
-        locationId: coach.locationId,
-      };
-      setSession(session);
-      onLogin(session);
-    } else {
+    try {
+      const coach = await verifyPin(nameInput, pin);
+      if (coach) {
+        const session: CoachSession = {
+          coachId: coach.id,
+          name: coach.name,
+          role: coach.role,
+          locationId: coach.locationId,
+        };
+        setSession(session);
+        onLogin(session);
+        return;
+      }
       setPin("");
       setError("Wrong PIN. Try again.");
       setShake(true);
       setTimeout(() => setShake(false), 500);
+    } catch {
+      // The PIN is checked on the server, so no connection means no sign-in.
+      // Without this the screen sat on "Checking..." for good — in a gym with
+      // weak signal, which is exactly where this happens.
+      setPin("");
+      setError("Can't reach the server. Signing in needs a connection — check your signal and try again.");
+    } finally {
+      setVerifying(false);
     }
-    setVerifying(false);
   }
 
   async function handleAddCoach() {
@@ -175,6 +184,7 @@ export default function PinLogin({ onLogin }: PinLoginProps) {
               <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 4, color: "#0f2530" }}>Coach Login</div>
               <p style={{ fontSize: 13, color: "#567888", marginBottom: 18, fontFamily: "Arial, sans-serif" }}>Who&apos;s leading tonight?</p>
               <input
+                type="text"
                 placeholder="Your name..."
                 value={nameInput}
                 onChange={e => setNameInput(e.target.value)}

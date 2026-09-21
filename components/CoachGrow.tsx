@@ -28,6 +28,9 @@ interface CoachGrowProps {
   latestStudy: Study | null;
   allStudies: Study[];
   userData: UserData;
+  /** Per-coach storage keys — reflections are not shared across coaches. */
+  journalKey: string;
+  profileKey: string;
   attendanceGoal: number;
   onSaveReflection: (text: string) => void;
   onSaveProfile: (profile: CoachProfile) => void;
@@ -38,8 +41,8 @@ type Section = "dashboard" | "prep" | "verse" | "library" | "resources" | "journ
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function loadProfile(userData: UserData): CoachProfile {
-  try { return JSON.parse((userData.notes as Record<string,string>)._coach_profile || "{}"); } catch { return { name: "", role: "Head Coach" }; }
+function loadProfile(userData: UserData, profileKey: string): CoachProfile {
+  try { return JSON.parse((userData.notes as Record<string,string>)[profileKey] || "{}"); } catch { return { name: "", role: "Head Coach" }; }
 }
 function loadSeasonVerse(userData: UserData): SeasonVerse | null {
   try { return JSON.parse((userData.notes as Record<string,string>)._season_verse || "null"); } catch { return null; }
@@ -93,12 +96,12 @@ function Sparkline({ data, goal }: { data: number[]; goal: number }) {
 }
 
 // ── Main component ─────────────────────────────────────────────────────────────
-export default function CoachGrow({ latestStudy, allStudies, userData, attendanceGoal, onSaveReflection, onSaveProfile, onSaveSeasonVerse }: CoachGrowProps) {
+export default function CoachGrow({ latestStudy, allStudies, userData, attendanceGoal, journalKey, profileKey, onSaveReflection, onSaveProfile, onSaveSeasonVerse }: CoachGrowProps) {
   const [section, setSection] = useState<Section>("dashboard");
 
   // Profile
-  const [profile, setProfile] = useState<CoachProfile>(loadProfile(userData));
-  const [editingProfile, setEditingProfile] = useState(!loadProfile(userData).name);
+  const [profile, setProfile] = useState<CoachProfile>(loadProfile(userData, profileKey));
+  const [editingProfile, setEditingProfile] = useState(!loadProfile(userData, profileKey).name);
   const [profileName, setProfileName] = useState(profile.name);
   const [profileRole, setProfileRole] = useState(profile.role || "Head Coach");
 
@@ -122,7 +125,7 @@ export default function CoachGrow({ latestStudy, allStudies, userData, attendanc
   const [selectedResource, setSelectedResource] = useState<Resource | null>(null);
 
   // Journal
-  const [journalText, setJournalText] = useState(userData.notes["_coach_journal"] || "");
+  const [journalText, setJournalText] = useState(userData.notes[journalKey] || "");
   const [journalSaved, setJournalSaved] = useState(false);
 
   const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);

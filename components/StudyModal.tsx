@@ -19,6 +19,8 @@ interface StudyModalProps {
   userData: UserData;
   onClose: () => void;
   onSaveNotes: (id: string | number, notes: string) => void;
+  /** Writes several note keys in one save, so they can't race each other. */
+  onSaveEntries: (entries: Record<string, string>) => void;
   onSaveAttend: (id: string | number, count: number) => void;
   onDeleteDraft: (id: string | number) => void;
   onDeleteStudy: (id: string | number) => void;
@@ -30,6 +32,7 @@ export default function StudyModal({
   userData,
   onClose,
   onSaveNotes,
+  onSaveEntries,
   onSaveAttend,
   onDeleteDraft,
   onDeleteStudy,
@@ -283,7 +286,7 @@ h1{font-size:22px;text-align:center;margin-bottom:4px}.th{font-size:13px;text-al
             </div>
             <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
               {[5,10,15,20].map(n => (
-                <button key={n} onClick={() => setAttend(String(n))} style={{ flex: 1, padding: "12px 0", minHeight: 44, background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 9, fontSize: 14, fontWeight: 700, color: "var(--text2)", cursor: "pointer" }}>+{n}</button>
+                <button key={n} onClick={() => setAttend(a => String((parseInt(a) || 0) + n))} style={{ flex: 1, padding: "12px 0", minHeight: 44, background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 9, fontSize: 14, fontWeight: 700, color: "var(--text2)", cursor: "pointer" }}>+{n}</button>
               ))}
             </div>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -303,10 +306,15 @@ h1{font-size:22px;text-align:center;margin-bottom:4px}.th{font-size:13px;text-al
             <input className="form-input" style={{ marginBottom: 8 }} placeholder="What hit with the students?" value={ratingHit} onChange={e => setRatingHit(e.target.value)} />
             <input className="form-input" style={{ marginBottom: 10 }} placeholder="What would you change?" value={ratingChange} onChange={e => setRatingChange(e.target.value)} />
             <button className="save-btn" onClick={() => {
-              onSaveNotes(study.id, notes);
-              const ratingKey = `_rating_${sid}`;
-              onSaveNotes(ratingKey, JSON.stringify({ stars: ratingStars, whatHit: ratingHit, whatToChange: ratingChange, date: new Date().toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}) }));
-              onToast("Rating saved!");
+              // Saved together: as two separate writes the second could reach
+              // the server first and drop whichever the coach typed.
+              onSaveEntries({
+                [sid]: notes,
+                [`_rating_${sid}`]: JSON.stringify({
+                  stars: ratingStars, whatHit: ratingHit, whatToChange: ratingChange,
+                  date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+                }),
+              });
             }}>Save Rating</button>
           </div>
 

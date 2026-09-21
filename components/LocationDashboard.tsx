@@ -68,10 +68,12 @@ export default function LocationDashboard() {
     setFailed(false);
     Promise.all(
       LOCATIONS.map(async (loc) => {
-        const [userData, store] = await Promise.all([
+        const [userDataRes, storeRes] = await Promise.all([
           loadUserData(loc.id),
           loadStudies(loc.id),
         ]);
+        const userData = userDataRes.data;
+        const store = storeRes.data;
         return {
           ...computeStats(loc.id, userData, store),
           name: loc.name,

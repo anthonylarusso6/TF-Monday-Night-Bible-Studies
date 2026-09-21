@@ -11,6 +11,17 @@ export type { StudyStore };
  * no key of its own, so the database can refuse anonymous requests outright.
  * A failed call falls back to this device's copy exactly as before.
  */
+/**
+ * Whether a load actually reached the server. The loaders fall back to this
+ * device's copy when it didn't, which looks identical to a successful load —
+ * so the caller is told, rather than reporting work as synced when it is still
+ * sitting on one device.
+ */
+export interface LoadResult<T> {
+  ok: boolean;
+  data: T;
+}
+
 /** Shape of a user_data row as the API returns it. */
 interface DataRow {
   id: string;
@@ -98,7 +109,7 @@ function localStore(locationId: string): StudyStore {
 
 // ── Per-session state: likes, leader notes, attendance, drafts ────────────────
 
-export async function loadUserData(locationId = DEFAULT_LOCATION.id): Promise<UserData> {
+export async function loadUserData(locationId = DEFAULT_LOCATION.id): Promise<LoadResult<UserData>> {
   try {
     const data = await apiGet(locationId);
 
@@ -108,7 +119,7 @@ export async function loadUserData(locationId = DEFAULT_LOCATION.id): Promise<Us
       // stranded in localStorage where the other device can never see it.
       const local = readLS(lsKey(locationId), EMPTY);
       if (hasSessionState(local)) await saveUserData(local, locationId);
-      return local;
+      return { ok: true, data: local };
     }
 
     // Legacy rows kept the study library under notes._g. Drop it here so it
@@ -128,10 +139,10 @@ export async function loadUserData(locationId = DEFAULT_LOCATION.id): Promise<Us
     if (merged.drafts.length > server.drafts.length) {
       await saveUserData(merged, locationId);
     }
-    return merged;
+    return { ok: true, data: merged };
   } catch (e) {
-    console.warn("Supabase unreachable:", e, "— using local backup");
-    return readLS(lsKey(locationId), EMPTY);
+    console.warn("Server unreachable:", e, "— using this device's copy");
+    return { ok: false, data: readLS(lsKey(locationId), EMPTY) };
   }
 }
 
@@ -157,7 +168,7 @@ export async function saveUserData(
 
 // ── Study library + shared settings ──────────────────────────────────────────
 
-export async function loadStudies(locationId = DEFAULT_LOCATION.id): Promise<StudyStore> {
+export async function loadStudies(locationId = DEFAULT_LOCATION.id): Promise<LoadResult<StudyStore>> {
   try {
     const data = await apiGet(studiesId(locationId));
 
@@ -184,11 +195,11 @@ export async function loadStudies(locationId = DEFAULT_LOCATION.id): Promise<Stu
           );
         }
       }
-      return merged;
+      return { ok: true, data: merged };
     }
     // No studies row yet — migrate from the legacy notes._g blob if present.
     const migrated = await migrateLegacyStudies(locationId);
-    if (migrated) return migrated;
+    if (migrated) return { ok: true, data: migrated };
 
     // Nothing on the server at all. A library that only ever saved locally is
     // the one copy in existence, so upload it before anything can overwrite it.
@@ -197,10 +208,10 @@ export async function loadStudies(locationId = DEFAULT_LOCATION.id): Promise<Stu
       const ok = await saveStudies(local, locationId);
       if (ok) console.info(`Seeded ${local.studies.length} studies from this device.`);
     }
-    return local;
+    return { ok: true, data: local };
   } catch (e) {
-    console.warn("Supabase unreachable:", e, "— using local backup");
-    return localStore(locationId);
+    console.warn("Server unreachable:", e, "— using this device's copy");
+    return { ok: false, data: localStore(locationId) };
   }
 }
 

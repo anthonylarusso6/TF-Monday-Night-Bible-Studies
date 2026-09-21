@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabaseServer";
+import { LOCATIONS } from "@/lib/locations";
 
 /**
  * Reads and writes a location's rows through the server, so the browser never
@@ -11,10 +12,13 @@ import { supabaseServer } from "@/lib/supabaseServer";
 
 export const dynamic = "force-dynamic";
 
-const ALLOWED_ID = /^[a-z0-9-]+(__studies)?$/;
-
+/**
+ * Only the rows the app actually owns. A permissive pattern let an
+ * unauthenticated caller create unlimited junk rows in the table, so this is a
+ * whitelist built from the configured locations instead.
+ */
 function validId(id: string): boolean {
-  return ALLOWED_ID.test(id) && id !== "_coaches" && !id.startsWith("_");
+  return LOCATIONS.some((l) => id === l.id || id === `${l.id}__studies`);
 }
 
 export async function GET(req: NextRequest) {

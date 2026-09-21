@@ -83,12 +83,25 @@ export default function Home() {
     setLocation(LOCATIONS.find(l => l.id === savedLocationId) || LOCATIONS[0]);
 
     Promise.all([loadUserData(savedLocationId), loadStudies(savedLocationId)])
-      .then(([data, store]) => {
-        setUserData(data);
-        applyStore(store);
+      .then(([u, st]) => {
+        applyUserData(u.data);
+        applyStore(st.data);
+        setPendingUpload(!(u.ok && st.ok));
         setLoaded(true);
       });
   }, []);
+
+  /**
+   * Mirrors userData so a save can build on the previous one. Handlers used to
+   * spread the `userData` captured by their render, so two saves fired from the
+   * same click — setting a rating right after typing leader notes — each built
+   * from the same starting point and the second discarded the first.
+   */
+  const userDataRef = useRef<UserData>(userData);
+  function applyUserData(next: UserData) {
+    userDataRef.current = next;
+    setUserData(next);
+  }
 
   function applyStore(store: StudyStore) {
     setGeneratedStudies(store.studies);
@@ -118,15 +131,17 @@ export default function Home() {
     syncingRef.current = true;
     setSyncing(true);
     try {
-      const [data, store] = await Promise.all([
+      const [u, st] = await Promise.all([
         loadUserData(location.id),
         loadStudies(location.id),
       ]);
-      setUserData(data);
-      applyStore(store);
-      // Loading merges anything this device held into the server copy, so a
-      // clean pass means nothing is stranded here any more.
-      setPendingUpload(false);
+      applyUserData(u.data);
+      applyStore(st.data);
+      // The loaders fall back to this device's copy rather than throwing, so
+      // only an acknowledged round-trip means the work is actually on the
+      // server. Clearing this on a failed sync told the coach everything was
+      // safe and stopped the retries.
+      setPendingUpload(!(u.ok && st.ok));
     } catch {
       setPendingUpload(true);
     } finally {
@@ -157,19 +172,25 @@ export default function Home() {
     return () => clearInterval(id);
   }, [loaded, pendingUpload, syncData]);
 
-  /** Saves likes / notes / attendance / drafts. Small payload, written often. */
-  const persist = useCallback(async (next: UserData) => {
-    setUserData(next);
+  /**
+   * Saves likes / notes / attendance / drafts. Small payload, written often.
+   * Takes an updater so overlapping saves build on each other rather than one
+   * silently winning. Returns whether the server accepted it.
+   */
+  const persist = useCallback(async (update: (prev: UserData) => UserData): Promise<boolean> => {
+    const next = update(userDataRef.current);
+    applyUserData(next);
     const ok = await saveUserData(next, location.id);
     setPendingUpload(!ok);
     if (!ok) showToast("Saved on this device — will sync when you're back online.");
+    return ok;
   }, [location.id]);
 
   /** Saves the study library and shared settings. Only call when they change. */
   const persistStudies = useCallback(async (
     patch: Partial<StudyStore>,
     current?: { studies?: Study[]; hiddenIds?: Set<string>; goal?: number }
-  ) => {
+  ): Promise<boolean> => {
     const store: StudyStore = {
       studies: patch.studies ?? current?.studies ?? generatedStudies,
       hiddenIds: patch.hiddenIds ?? [...(current?.hiddenIds ?? hiddenIds)],
@@ -178,16 +199,21 @@ export default function Home() {
     const ok = await saveStudies(store, location.id);
     setPendingUpload(!ok);
     if (!ok) showToast("Saved on this device — will sync when you're back online.");
+    return ok;
   }, [generatedStudies, hiddenIds, attendanceGoal, location.id]);
 
   async function switchLocation(loc: Location) {
+    // Blocks saves while the new location loads. The handlers close over
+    // location.id, which changes immediately, so a tap during the load would
+    // write the previous location's data into this one's row.
     setLoaded(false);
     setLocation(loc);
     setLocationPickerOpen(false);
     localStorage.setItem("tf_location", loc.id);
-    const [data, store] = await Promise.all([loadUserData(loc.id), loadStudies(loc.id)]);
-    setUserData(data);
-    applyStore(store);
+    const [u, st] = await Promise.all([loadUserData(loc.id), loadStudies(loc.id)]);
+    applyUserData(u.data);
+    applyStore(st.data);
+    setPendingUpload(!(u.ok && st.ok));
     setLoaded(true);
     showToast(`Switched to ${loc.name}`);
   }
@@ -204,13 +230,18 @@ export default function Home() {
 
   async function toggleLike(id: string | number) {
     const sid = String(id);
-    await persist({ ...userData, liked: { ...userData.liked, [sid]: !userData.liked[sid] } });
+    await persist(prev => ({ ...prev, liked: { ...prev.liked, [sid]: !prev.liked[sid] } }));
   }
   async function handleSaveNotes(id: string | number, notes: string) {
-    await persist({ ...userData, notes: { ...userData.notes, [String(id)]: notes } });
+    await persist(prev => ({ ...prev, notes: { ...prev.notes, [String(id)]: notes } }));
+  }
+  /** Writes several note keys in one save so they cannot race each other. */
+  async function handleSaveEntries(entries: Record<string, string>) {
+    const ok = await persist(prev => ({ ...prev, notes: { ...prev.notes, ...entries } }));
+    if (ok) showToast("Saved!");
   }
   async function handleSaveAttend(id: string | number, count: number) {
-    await persist({ ...userData, attendance: { ...userData.attendance, [String(id)]: count } });
+    await persist(prev => ({ ...prev, attendance: { ...prev.attendance, [String(id)]: count } }));
   }
   async function handleCreateDraft(topic: string) {
     const draft: Study = {
@@ -220,13 +251,23 @@ export default function Home() {
       anchor: { ref: "", text: "" }, sup: [], bi: "Draft — build this study out.",
       bd: [], sbd: [], qs: [], tk: [],
     };
-    await persist({ ...userData, drafts: [draft, ...userData.drafts] });
+    const ok = await persist(prev => ({ ...prev, drafts: [draft, ...prev.drafts] }));
     changeTab("drafts");
-    showToast(`Draft created: ${topic}`);
+    if (ok) showToast(`Draft created: ${topic}`);
   }
   async function handleDeleteDraft(id: string | number) {
-    await persist({ ...userData, drafts: userData.drafts.filter((d) => String(d.id) !== String(id)) });
-    showToast("Draft deleted.");
+    const sid = String(id);
+    // Drafts are merged across devices by union, so removing one here alone
+    // lets any other device still holding it put it back on its next sync.
+    // Recording the deletion the same way studies do makes it stick.
+    const nextHidden = new Set(hiddenIds);
+    nextHidden.add(sid);
+    setHiddenIds(nextHidden);
+    const results = await Promise.all([
+      persist(prev => ({ ...prev, drafts: prev.drafts.filter((d) => String(d.id) !== sid) })),
+      persistStudies({ hiddenIds: [...nextHidden] }),
+    ]);
+    if (results.every(Boolean)) showToast("Draft deleted.");
   }
   async function handleDeleteStudy(id: string | number) {
     const sid = String(id);
@@ -235,8 +276,8 @@ export default function Home() {
     nextHidden.add(sid);
     setGeneratedStudies(updatedGen);
     setHiddenIds(nextHidden);
-    await persistStudies({ studies: updatedGen, hiddenIds: [...nextHidden] });
-    showToast("Study removed.");
+    const ok = await persistStudies({ studies: updatedGen, hiddenIds: [...nextHidden] });
+    if (ok) showToast("Study removed.");
   }
   async function handleStudyCreated(study: Study) {
     const updated = [study, ...generatedStudies];
@@ -259,6 +300,12 @@ export default function Home() {
     }
     setEditingGoal(false);
   }
+
+  // Reflections and the coach profile belong to one coach, not the location.
+  // Under shared keys every coach at a site read and overwrote the same journal,
+  // while the screen called it a private space.
+  const journalKey = `_coach_journal_${session?.coachId ?? "anon"}`;
+  const profileKey = `_coach_profile_${session?.coachId ?? "anon"}`;
 
   const published = allStudies.filter((s) => !s.draft).length;
   const draftCount = userData.drafts.length;
@@ -527,17 +574,19 @@ export default function Home() {
               allStudies={allStudies}
               userData={userData}
               attendanceGoal={attendanceGoal}
+              journalKey={journalKey}
+              profileKey={profileKey}
               onSaveReflection={async (text) => {
-                await persist({ ...userData, notes: { ...userData.notes, "_coach_journal": text } });
-                showToast("Reflection saved!");
+                const ok = await persist(prev => ({ ...prev, notes: { ...prev.notes, [journalKey]: text } }));
+                if (ok) showToast("Reflection saved!");
               }}
               onSaveProfile={async (profile) => {
-                await persist({ ...userData, notes: { ...userData.notes, "_coach_profile": JSON.stringify(profile) } });
-                showToast("Profile saved!");
+                const ok = await persist(prev => ({ ...prev, notes: { ...prev.notes, [profileKey]: JSON.stringify(profile) } }));
+                if (ok) showToast("Profile saved!");
               }}
               onSaveSeasonVerse={async (verse) => {
-                await persist({ ...userData, notes: { ...userData.notes, "_season_verse": JSON.stringify(verse) } });
-                showToast("Season verse set!");
+                const ok = await persist(prev => ({ ...prev, notes: { ...prev.notes, "_season_verse": JSON.stringify(verse) } }));
+                if (ok) showToast("Season verse set!");
               }}
             />
           )}
@@ -545,7 +594,7 @@ export default function Home() {
             <PrayerRequests
               userData={userData}
               onSave={async (requests) => {
-                await persist({ ...userData, notes: { ...userData.notes, _prayers: JSON.stringify(requests) } });
+                await persist(prev => ({ ...prev, notes: { ...prev.notes, _prayers: JSON.stringify(requests) } }));
               }}
             />
           )}
@@ -554,7 +603,7 @@ export default function Home() {
               allStudies={allStudies}
               userData={userData}
               onSave={async (plan) => {
-                await persist({ ...userData, notes: { ...userData.notes, _plan: JSON.stringify(plan) } });
+                await persist(prev => ({ ...prev, notes: { ...prev.notes, _plan: JSON.stringify(plan) } }));
               }}
             />
           )}
@@ -575,7 +624,7 @@ export default function Home() {
 
       {openStudy && (
         <StudyModal study={openStudy} userData={userData} onClose={() => setOpenStudyId(null)}
-          onSaveNotes={handleSaveNotes} onSaveAttend={handleSaveAttend}
+          onSaveNotes={handleSaveNotes} onSaveEntries={handleSaveEntries} onSaveAttend={handleSaveAttend}
           onDeleteDraft={handleDeleteDraft} onDeleteStudy={handleDeleteStudy} onToast={showToast} />
       )}
       {toast && <Toast message={toast} onDone={() => setToast(null)} />}
