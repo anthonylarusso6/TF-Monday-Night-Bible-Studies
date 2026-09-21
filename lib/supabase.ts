@@ -33,6 +33,16 @@ export interface StudyStore {
 
 const EMPTY_STORE: StudyStore = { studies: [], hiddenIds: [], goal: 20 };
 
+/** True when a device holds session state worth uploading to an empty server. */
+function hasSessionState(d: UserData): boolean {
+  return Boolean(
+    d.drafts?.length ||
+    Object.keys(d.liked || {}).length ||
+    Object.keys(d.notes || {}).length ||
+    Object.keys(d.attendance || {}).length
+  );
+}
+
 function studiesId(locationId: string) { return `${locationId}__studies`; }
 function lsKey(locationId: string) { return `tf_userdata_${locationId}`; }
 function lsStoreKey(locationId: string) { return `tf_studies_${locationId}`; }
@@ -86,8 +96,14 @@ export async function loadUserData(locationId = DEFAULT_LOCATION.id): Promise<Us
     if (error) {
       if (error.code !== "PGRST116") {
         console.warn("Supabase load error:", error.message, "— using local backup");
+        return readLS(lsKey(locationId), EMPTY);
       }
-      return readLS(lsKey(locationId), EMPTY);
+      // No row yet. Anything this device built up while the server was
+      // unreachable is the only copy, so push it rather than leaving it
+      // stranded in localStorage where the other device can never see it.
+      const local = readLS(lsKey(locationId), EMPTY);
+      if (hasSessionState(local)) await saveUserData(local, locationId);
+      return local;
     }
 
     // Legacy rows kept the study library under notes._g. Drop it here so it
@@ -160,7 +176,14 @@ export async function loadStudies(locationId = DEFAULT_LOCATION.id): Promise<Stu
     const migrated = await migrateLegacyStudies(locationId);
     if (migrated) return migrated;
 
-    return localStore(locationId);
+    // Nothing on the server at all. A library that only ever saved locally is
+    // the one copy in existence, so upload it before anything can overwrite it.
+    const local = localStore(locationId);
+    if (local.studies.length) {
+      const ok = await saveStudies(local, locationId);
+      if (ok) console.info(`Seeded ${local.studies.length} studies from this device.`);
+    }
+    return local;
   } catch (e) {
     console.warn("Supabase unreachable:", e, "— using local backup");
     return localStore(locationId);
