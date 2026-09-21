@@ -22,15 +22,27 @@ function env(name) {
 }
 
 const url = env("NEXT_PUBLIC_SUPABASE_URL");
-const key = env("NEXT_PUBLIC_SUPABASE_ANON_KEY");
+// The public key can no longer read anything, which is the point of the
+// lockdown. Backing up needs the service key, and it also has to be the
+// service key to capture coach PINs — the app's own endpoints strip those.
+const key = env("SUPABASE_SERVICE_ROLE_KEY");
 if (!url || !key) {
-  console.error("Missing Supabase URL or key (.env.local or environment).");
+  console.error(
+    "Missing SUPABASE_SERVICE_ROLE_KEY.\n" +
+    "Add it to .env.local (the same value that is set in Vercel):\n" +
+    "  SUPABASE_SERVICE_ROLE_KEY=<service_role key from Supabase>\n" +
+    "Keep it out of git — .env.local is already ignored."
+  );
   process.exit(1);
 }
 
 const res = await fetch(`${url}/rest/v1/user_data?select=*`, { headers: { apikey: key } });
 if (!res.ok) {
-  console.error(`Backup failed: HTTP ${res.status} ${await res.text()}`);
+  const detail = await res.text();
+  console.error(`Backup failed: HTTP ${res.status} ${detail}`);
+  if (res.status === 401) {
+    console.error("That key was rejected — check SUPABASE_SERVICE_ROLE_KEY in .env.local.");
+  }
   process.exit(1);
 }
 const rows = await res.json();

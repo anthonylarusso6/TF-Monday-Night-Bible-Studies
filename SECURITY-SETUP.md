@@ -86,5 +86,15 @@ alter table public.user_data disable row level security;
 ## Backups
 
 `npm run backup` writes every row to `~/tf-bible-backups/`, keeping the last 30.
-It refuses to write an empty snapshot over good ones. Worth running before any
-change like this.
+It refuses to write an empty snapshot over good ones, so a failure can't quietly
+destroy earlier copies.
+
+Once the database is locked down the public key reads nothing, so backups need
+the service key locally. Add the same value that is set in Vercel to
+`.env.local`:
+
+```
+SUPABASE_SERVICE_ROLE_KEY=<the service_role key>
+```
+
+`.env.local` is gitignored. Backup files are too — they contain coach PINs.
