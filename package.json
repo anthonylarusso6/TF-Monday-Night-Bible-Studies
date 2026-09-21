@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "test:merge": "node scripts/test-merge.mjs",
-    "backup": "node scripts/backup.mjs"
+    "backup": "node scripts/backup.mjs",
+    "verify:security": "node scripts/verify-security.mjs"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.0",
