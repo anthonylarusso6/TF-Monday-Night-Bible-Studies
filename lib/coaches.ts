@@ -1,14 +1,17 @@
-import { supabase } from "./supabase";
 import { LOCATIONS } from "./locations";
 
-const REGISTRY_ID = "_coaches";
 const SESSION_KEY = "tf_coach_session";
 const CACHE_KEY = "tf_coaches_cache";
 
+/**
+ * A coach as the browser sees one. There is deliberately no `pin` field: PINs
+ * stay on the server and are checked there, because anything sent to the client
+ * is readable by anyone using the app — which previously let a student read
+ * every coach's PIN straight out of the network tab.
+ */
 export interface Coach {
   id: string;
   name: string;
-  pin: string; // 4-digit string
   role: string;
   locationId: string;
 }
@@ -35,8 +38,8 @@ export interface RegistryResult {
 }
 
 export class RegistryUnavailableError extends Error {
-  constructor() {
-    super("Can't reach the server right now. Try again in a moment.");
+  constructor(message = "Can't reach the server right now. Try again in a moment.") {
+    super(message);
     this.name = "RegistryUnavailableError";
   }
 }
@@ -58,7 +61,7 @@ export function clearSession() {
   localStorage.removeItem(SESSION_KEY);
 }
 
-// ── Registry ──────────────────────────────────────────────────────────────────
+// ── Registry (server-backed) ─────────────────────────────────────────────────
 
 function readCache(): Coach[] {
   try {
@@ -72,19 +75,25 @@ function writeCache(coaches: Coach[]) {
   try { localStorage.setItem(CACHE_KEY, JSON.stringify(coaches)); } catch {}
 }
 
+async function post(body: Record<string, unknown>) {
+  const res = await fetch("/api/coaches", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.ok) throw new RegistryUnavailableError(json.error || "Request failed.");
+  return json;
+}
+
 export async function loadCoaches(): Promise<RegistryResult> {
   try {
-    const { data, error } = await supabase
-      .from("user_data")
-      .select("notes")
-      .eq("id", REGISTRY_ID)
-      .single();
-
-    // PGRST116 = no row yet, which genuinely means no coaches are registered.
-    if (error && error.code !== "PGRST116") throw new Error(error.message);
-
-    const notes = (data?.notes ?? null) as Record<string, string> | null;
-    const coaches: Coach[] = notes?.list ? JSON.parse(notes.list) : [];
+    const res = await fetch("/api/coaches", { cache: "no-store" });
+    const json = await res.json();
+    if (!res.ok || !json.ok) throw new Error(json.error || `Request failed (${res.status})`);
+    const coaches: Coach[] = json.coaches || [];
+    // Cached so the login screen can still list who is registered with no
+    // signal. Signing in still needs the server, since the PIN is checked there.
     writeCache(coaches);
     return { ok: true, coaches, cached: false };
   } catch (e) {
@@ -93,50 +102,40 @@ export async function loadCoaches(): Promise<RegistryResult> {
   }
 }
 
-async function saveCoaches(coaches: Coach[]): Promise<void> {
-  const { error } = await supabase.from("user_data").upsert({
-    id: REGISTRY_ID,
-    notes: { list: JSON.stringify(coaches) },
-    liked: {},
-    attendance: {},
-    drafts: [],
-    updated_at: new Date().toISOString(),
-  });
-  if (error) throw new Error(error.message);
-  writeCache(coaches);
+export interface NewCoach {
+  name: string;
+  role: string;
+  locationId: string;
+  /** Sent once on creation and never returned to the browser again. */
+  pin: string;
+}
+
+export async function addCoach(coach: NewCoach): Promise<Coach> {
+  const { coach: created } = await post({ action: "add", ...coach });
+  return created as Coach;
+}
+
+export async function updateCoach(update: {
+  id: string; name?: string; role?: string; locationId?: string; pin?: string;
+}): Promise<Coach[]> {
+  const { coaches } = await post({ action: "update", ...update });
+  writeCache(coaches as Coach[]);
+  return coaches as Coach[];
+}
+
+export async function removeCoach(id: string): Promise<Coach[]> {
+  const { coaches } = await post({ action: "remove", id });
+  writeCache(coaches as Coach[]);
+  return coaches as Coach[];
 }
 
 /**
- * Replaces the whole registry. Only pass a list that came from an `ok: true`
- * load — writing a cached or empty list would drop coaches.
- */
-export async function replaceCoaches(coaches: Coach[]): Promise<void> {
-  await saveCoaches(coaches);
-}
-
-export async function addCoach(coach: Omit<Coach, "id">): Promise<Coach> {
-  const { ok, coaches } = await loadCoaches();
-  if (!ok) throw new RegistryUnavailableError();
-  const newCoach: Coach = { ...coach, id: `coach_${Date.now()}` };
-  await saveCoaches([...coaches, newCoach]);
-  return newCoach;
-}
-
-export async function removeCoach(id: string): Promise<void> {
-  const { ok, coaches } = await loadCoaches();
-  if (!ok) throw new RegistryUnavailableError();
-  await saveCoaches(coaches.filter(c => c.id !== id));
-}
-
-/**
- * Verifies a PIN. Falls back to the cached registry when offline so a coach
- * standing in a gym with no signal can still get into the app.
+ * Checks a PIN on the server and returns the coach when it matches.
+ * Requires a connection by design — the PIN list is not on this device.
  */
 export async function verifyPin(name: string, pin: string): Promise<Coach | null> {
-  const { coaches } = await loadCoaches();
-  return coaches.find(
-    c => c.name.toLowerCase() === name.toLowerCase() && c.pin === pin
-  ) || null;
+  const { coach } = await post({ action: "verify", name, pin });
+  return (coach as Coach) ?? null;
 }
 
 export const ROLES = ["Head Coach", "Assistant Coach", "Volunteer"];

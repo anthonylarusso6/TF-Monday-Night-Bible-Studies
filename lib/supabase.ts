@@ -1,4 +1,3 @@
-import { createClient } from "@supabase/supabase-js";
 import { Study, UserData } from "./types";
 import { DEFAULT_LOCATION } from "./locations";
 import type { StudyStore } from "./types";
@@ -7,17 +6,37 @@ import { mergeStores, mergeUserData } from "./merge";
 // Re-exported so callers keep importing the type from here.
 export type { StudyStore };
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  throw new Error(
-    "Missing Supabase environment variables. " +
-    "Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in your .env.local file or Vercel project settings."
-  );
+/**
+ * All database access goes through this app's own API routes. The browser gets
+ * no key of its own, so the database can refuse anonymous requests outright.
+ * A failed call falls back to this device's copy exactly as before.
+ */
+/** Shape of a user_data row as the API returns it. */
+interface DataRow {
+  id: string;
+  liked?: Record<string, boolean>;
+  notes?: Record<string, string>;
+  attendance?: Record<string, number>;
+  drafts?: Study[];
+  updated_at?: string;
 }
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+async function apiGet(id: string): Promise<DataRow | null> {
+  const res = await fetch(`/api/data?id=${encodeURIComponent(id)}`, { cache: "no-store" });
+  const body = await res.json();
+  if (!res.ok || !body.ok) throw new Error(body.error || `Request failed (${res.status})`);
+  return (body.row as DataRow | null) ?? null;
+}
+
+async function apiPut(row: Record<string, unknown>): Promise<void> {
+  const res = await fetch("/api/data", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(row),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok || !body.ok) throw new Error(body.error || `Request failed (${res.status})`);
+}
 
 const EMPTY: UserData = { liked: {}, notes: {}, attendance: {}, drafts: [] };
 
@@ -81,14 +100,9 @@ function localStore(locationId: string): StudyStore {
 
 export async function loadUserData(locationId = DEFAULT_LOCATION.id): Promise<UserData> {
   try {
-    const { data, error } = await supabase
-      .from("user_data").select("*").eq("id", locationId).single();
+    const data = await apiGet(locationId);
 
-    if (error) {
-      if (error.code !== "PGRST116") {
-        console.warn("Supabase load error:", error.message, "— using local backup");
-        return readLS(lsKey(locationId), EMPTY);
-      }
+    if (!data) {
       // No row yet. Anything this device built up while the server was
       // unreachable is the only copy, so push it rather than leaving it
       // stranded in localStorage where the other device can never see it.
@@ -127,18 +141,13 @@ export async function saveUserData(
 ): Promise<boolean> {
   writeLS(lsKey(locationId), userData);
   try {
-    const { error } = await supabase.from("user_data").upsert({
+    await apiPut({
       id: locationId,
       liked: userData.liked,
       notes: userData.notes,
       attendance: userData.attendance,
       drafts: userData.drafts,
-      updated_at: new Date().toISOString(),
     });
-    if (error) {
-      console.warn("Supabase save error:", error.message, "— saved locally only");
-      return false;
-    }
     return true;
   } catch (e) {
     console.warn("Supabase unreachable:", e, "— saved locally only");
@@ -150,10 +159,9 @@ export async function saveUserData(
 
 export async function loadStudies(locationId = DEFAULT_LOCATION.id): Promise<StudyStore> {
   try {
-    const { data, error } = await supabase
-      .from("user_data").select("*").eq("id", studiesId(locationId)).single();
+    const data = await apiGet(studiesId(locationId));
 
-    if (!error && data) {
+    if (data) {
       const meta = (data.notes || {}) as Record<string, string>;
       const server: StudyStore = {
         studies: data.drafts || [],
@@ -178,11 +186,6 @@ export async function loadStudies(locationId = DEFAULT_LOCATION.id): Promise<Stu
       }
       return merged;
     }
-    if (error && error.code !== "PGRST116") {
-      console.warn("Supabase studies load error:", error.message);
-      return localStore(locationId);
-    }
-
     // No studies row yet — migrate from the legacy notes._g blob if present.
     const migrated = await migrateLegacyStudies(locationId);
     if (migrated) return migrated;
@@ -207,8 +210,7 @@ export async function loadStudies(locationId = DEFAULT_LOCATION.id): Promise<Stu
  */
 async function migrateLegacyStudies(locationId: string): Promise<StudyStore | null> {
   try {
-    const { data } = await supabase
-      .from("user_data").select("notes").eq("id", locationId).single();
+    const data = await apiGet(locationId);
     const legacy = (data?.notes as Record<string, string> | undefined)?._g;
     if (!legacy) return null;
 
@@ -236,18 +238,13 @@ export async function saveStudies(
 ): Promise<boolean> {
   writeLS(lsStoreKey(locationId), store);
   try {
-    const { error } = await supabase.from("user_data").upsert({
+    await apiPut({
       id: studiesId(locationId),
       drafts: store.studies,
       notes: { hidden: JSON.stringify(store.hiddenIds), goal: String(store.goal) },
       liked: {},
       attendance: {},
-      updated_at: new Date().toISOString(),
     });
-    if (error) {
-      console.warn("Supabase studies save error:", error.message, "— saved locally only");
-      return false;
-    }
     return true;
   } catch (e) {
     console.warn("Supabase unreachable:", e, "— saved locally only");

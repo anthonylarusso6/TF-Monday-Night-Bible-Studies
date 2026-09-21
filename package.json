@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test:merge": "node scripts/test-merge.mjs"
+    "test:merge": "node scripts/test-merge.mjs",
+    "backup": "node scripts/backup.mjs"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.0",

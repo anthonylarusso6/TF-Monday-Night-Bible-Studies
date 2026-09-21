@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Coach, loadCoaches, replaceCoaches, addCoach, removeCoach, ROLES, LOCATIONS } from "@/lib/coaches";
+import { Coach, loadCoaches, updateCoach, addCoach, removeCoach, ROLES, LOCATIONS } from "@/lib/coaches";
 import { CoachSession } from "@/lib/coaches";
 
 interface AdminPanelProps {
@@ -75,21 +75,13 @@ export default function AdminPanel({ session }: AdminPanelProps) {
     if (pin && pin.length !== 4) { setError("PIN must be 4 digits."); return; }
     if (pin && pin !== confirmPin) { setError("PINs don't match."); return; }
     setError(""); setSaving(true);
-    // Re-read first: writing our in-memory list back could otherwise drop a
-    // coach another device added since this panel loaded.
-    const { ok, coaches: fresh } = await loadCoaches();
-    if (!ok) {
-      setError("Can't reach the server right now. Try again in a moment.");
-      setSaving(false);
-      return;
-    }
-    const updated = fresh.map(c =>
-      c.id === editingCoach.id
-        ? { ...c, name: name.trim(), role, locationId, ...(pin ? { pin } : {}) }
-        : c
-    );
     try {
-      await replaceCoaches(updated);
+      // The server re-reads the registry before writing, so a coach added from
+      // another device since this panel loaded is not dropped.
+      const updated = await updateCoach({
+        id: editingCoach.id, name: name.trim(), role, locationId,
+        ...(pin ? { pin } : {}),
+      });
       setCoaches(updated);
       setView("list");
       showToast("Coach updated!");
@@ -103,8 +95,7 @@ export default function AdminPanel({ session }: AdminPanelProps) {
     if (coach.id === session.coachId) { showToast("You can't delete yourself."); return; }
     if (!confirm(`Remove ${coach.name}? They won't be able to log in.`)) return;
     try {
-      await removeCoach(coach.id);
-      setCoaches(prev => prev.filter(c => c.id !== coach.id));
+      setCoaches(await removeCoach(coach.id));
       showToast(`${coach.name} removed.`);
     } catch (e) {
       showToast(e instanceof Error ? e.message : "Couldn't remove the coach.");

@@ -201,7 +201,8 @@ export default function PinLogin({ onLogin }: PinLoginProps) {
               </div>
               {offline ? (
                 <div style={{ fontSize: 12, color: "#92652a", background: "#fdf6e7", border: "1px solid #f0dcb0", borderRadius: 8, padding: "9px 12px", fontFamily: "Arial, sans-serif", lineHeight: 1.5 }}>
-                  Offline — showing your saved coaches. You can still sign in.
+                  Offline — this is your saved coach list. Signing in needs a
+                  connection, because PINs are only checked on the server.
                 </div>
               ) : (
                 <button onClick={() => setView("addCoach")} style={ghostBtnStyle}>＋ Add New Coach</button>
