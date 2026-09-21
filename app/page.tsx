@@ -475,7 +475,12 @@ export default function Home() {
           {isGrid && (() => {
             const latestStudy = tab === "all" && !search ? (allStudies.find(s => !s.draft) ?? null) : null;
             const gridStudies = latestStudy ? allStudies.filter(s => String(s.id) !== String(latestStudy.id)) : allStudies;
-            const gridCount = gridStudies.filter(s => tab === "drafts" ? s.draft : tab === "liked" ? !!userData.liked[String(s.id)] : !s.draft).length;
+            // The featured study is lifted out of the grid but is still one of
+            // the studies, so count it — a header reading "All Studies 17" above
+            // 18 of them invites a hunt for the missing one.
+            const gridCount =
+              gridStudies.filter(s => tab === "drafts" ? s.draft : tab === "liked" ? !!userData.liked[String(s.id)] : !s.draft).length
+              + (latestStudy ? 1 : 0);
             return (
               <>
                 {latestStudy && (
