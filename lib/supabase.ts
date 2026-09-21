@@ -1,6 +1,11 @@
 import { createClient } from "@supabase/supabase-js";
 import { Study, UserData } from "./types";
 import { DEFAULT_LOCATION } from "./locations";
+import type { StudyStore } from "./types";
+import { mergeStores, mergeUserData } from "./merge";
+
+// Re-exported so callers keep importing the type from here.
+export type { StudyStore };
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -16,20 +21,6 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const EMPTY: UserData = { liked: {}, notes: {}, attendance: {}, drafts: [] };
 
-/**
- * Studies live in their own row, separate from the per-session state above.
- * Liking a study or saving a note used to rewrite every study on every tap —
- * ~13KB per imported study, growing with the library. Splitting them means a
- * like costs about a kilobyte no matter how many studies exist, and the
- * library is only written when it actually changes.
- */
-export interface StudyStore {
-  studies: Study[];
-  /** Studies the coach removed. Shared so a delete on one device sticks on the others. */
-  hiddenIds: string[];
-  /** Attendance target — shared so both devices show the same goal. */
-  goal: number;
-}
 
 const EMPTY_STORE: StudyStore = { studies: [], hiddenIds: [], goal: 20 };
 
@@ -111,14 +102,19 @@ export async function loadUserData(locationId = DEFAULT_LOCATION.id): Promise<Us
     const notes = { ...(data.notes || {}) } as Record<string, string>;
     delete notes._g;
 
-    const result: UserData = {
+    const server: UserData = {
       liked: data.liked || {},
       notes,
       attendance: data.attendance || {},
       drafts: data.drafts || [],
     };
-    writeLS(lsKey(locationId), result);
-    return result;
+    const merged = mergeUserData(server, readLS(lsKey(locationId), EMPTY));
+    writeLS(lsKey(locationId), merged);
+
+    if (merged.drafts.length > server.drafts.length) {
+      await saveUserData(merged, locationId);
+    }
+    return merged;
   } catch (e) {
     console.warn("Supabase unreachable:", e, "— using local backup");
     return readLS(lsKey(locationId), EMPTY);
@@ -159,13 +155,28 @@ export async function loadStudies(locationId = DEFAULT_LOCATION.id): Promise<Stu
 
     if (!error && data) {
       const meta = (data.notes || {}) as Record<string, string>;
-      const store: StudyStore = {
+      const server: StudyStore = {
         studies: data.drafts || [],
         hiddenIds: meta.hidden ? JSON.parse(meta.hidden) : [],
         goal: meta.goal ? parseInt(meta.goal) || 20 : 20,
       };
-      writeLS(lsStoreKey(locationId), store);
-      return store;
+      const merged = mergeStores(server, localStore(locationId));
+      writeLS(lsStoreKey(locationId), merged);
+
+      // This device had studies or deletes the server didn't. Push them so the
+      // other devices receive them and a server-side copy finally exists.
+      if (
+        merged.studies.length > server.studies.length ||
+        merged.hiddenIds.length > server.hiddenIds.length
+      ) {
+        const ok = await saveStudies(merged, locationId);
+        if (ok) {
+          console.info(
+            `Merged ${merged.studies.length - server.studies.length} local studies into the server copy.`
+          );
+        }
+      }
+      return merged;
     }
     if (error && error.code !== "PGRST116") {
       console.warn("Supabase studies load error:", error.message);

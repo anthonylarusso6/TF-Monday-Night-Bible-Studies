@@ -69,3 +69,16 @@ export interface UserData {
   attendance: Record<string, number>;
   drafts: Study[];
 }
+
+/**
+ * A location's study library plus the settings shared across devices.
+ * Kept here (not beside the Supabase client) so the merge logic that guards
+ * against data loss can be imported and tested without a network client.
+ */
+export interface StudyStore {
+  studies: Study[];
+  /** Studies the coach removed. Shared so a delete on one device sticks on the others. */
+  hiddenIds: string[];
+  /** Attendance target — shared so both devices show the same goal. */
+  goal: number;
+}
