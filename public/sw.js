@@ -1,4 +1,4 @@
-const CACHE = 'tf-bible-v9';
+const CACHE = 'tf-bible-v10';
 
 self.addEventListener('install', () => self.skipWaiting());
 
@@ -16,17 +16,23 @@ self.addEventListener('fetch', (e) => {
 
   const url = new URL(req.url);
 
-  // Only ever handle this app's own files. Supabase has to reach the network
-  // untouched: caching its responses served stale data, and on a failed lookup
-  // the old handler resolved to undefined, which makes the request throw. The
-  // app read that as being offline while the connection was actually fine.
+  // Only this app's own files. Supabase must reach the network untouched:
+  // caching its responses served stale data, and on a failed lookup the old
+  // handler resolved to undefined, which makes the request throw — the app
+  // read that as being offline while the connection was fine.
   if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith('/api/')) return;
+
+  const isDocument = req.mode === 'navigate' || req.destination === 'document';
 
   e.respondWith(
     fetch(req)
       .then((res) => {
-        if (res.ok && res.type === 'basic') {
+        // Only store content-hashed build output and static assets. An HTML
+        // document names the exact script files of the build it came from, so
+        // a stored copy goes stale the moment a new version deploys and the
+        // app fails to start with a missing-chunk error.
+        if (res.ok && res.type === 'basic' && !isDocument) {
           const clone = res.clone();
           caches.open(CACHE).then((c) => c.put(req, clone)).catch(() => {});
         }
@@ -35,11 +41,7 @@ self.addEventListener('fetch', (e) => {
       .catch(async () => {
         const cached = await caches.match(req);
         if (cached) return cached;
-        if (req.mode === 'navigate') {
-          const shell = await caches.match('/');
-          if (shell) return shell;
-        }
-        // Must return a Response — never undefined.
+        // Must return a Response — never undefined, which makes fetch throw.
         return Response.error();
       })
   );

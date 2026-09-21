@@ -1,5 +1,40 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+
+/**
+ * A stale tab asks for JavaScript filenames from the build it was loaded with.
+ * Those filenames are content-hashed, so after a deploy they no longer exist
+ * and the app fails to start. Nothing is wrong with the coach's data — the page
+ * just needs its caches dropped and a reload.
+ */
+function isStaleBuildError(error: Error): boolean {
+  return (
+    error.name === "ChunkLoadError" ||
+    /Loading chunk .* failed/i.test(error.message) ||
+    /Failed to fetch dynamically imported module/i.test(error.message) ||
+    /importing a module script failed/i.test(error.message)
+  );
+}
+
+/**
+ * Drops the service worker and its caches, then reloads. Deliberately leaves
+ * localStorage alone: for now it holds the only copy of some studies.
+ */
+async function reloadFresh() {
+  try {
+    if ("serviceWorker" in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map((r) => r.unregister()));
+    }
+  } catch {}
+  try {
+    if (window.caches) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((k) => caches.delete(k)));
+    }
+  } catch {}
+  window.location.replace("/");
+}
 
 export default function Error({
   error,
@@ -8,10 +43,42 @@ export default function Error({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const [recovering, setRecovering] = useState(false);
+
   useEffect(() => {
     // Log to console so a coach can copy and share it
     console.error("App error:", error);
+
+    // A stale build is self-correcting, so fix it rather than asking a coach
+    // mid-session to understand it. The flag stops a reload loop if the real
+    // problem is something else.
+    if (isStaleBuildError(error)) {
+      const KEY = "tf_stale_build_reload";
+      let alreadyTried = false;
+      try { alreadyTried = sessionStorage.getItem(KEY) === "1"; } catch {}
+      if (!alreadyTried) {
+        try { sessionStorage.setItem(KEY, "1"); } catch {}
+        setRecovering(true);
+        reloadFresh();
+        return;
+      }
+    }
+    // Reaching here on a later render means recovery already ran; let it retry
+    // again on the next fresh visit.
+    try { sessionStorage.removeItem("tf_stale_build_reload"); } catch {}
   }, [error]);
+
+  if (recovering) {
+    return (
+      <div style={{
+        minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
+        background: "#0a3a52", padding: 24, fontFamily: "Arial, sans-serif",
+        color: "rgba(255,255,255,0.75)", fontSize: 15, textAlign: "center",
+      }}>
+        Updating to the latest version…
+      </div>
+    );
+  }
 
   return (
     <div style={{
@@ -24,8 +91,9 @@ export default function Error({
           Something went wrong
         </h2>
         <p style={{ fontSize: 13.5, color: "#567888", lineHeight: 1.6, marginBottom: 20 }}>
-          The app hit an unexpected error. Try refreshing — if it keeps happening,
-          share the error details below with Anthony.
+          The app hit an unexpected error. Try again — if it keeps happening,
+          share the error details below with Anthony. Your studies and notes are
+          not affected.
         </p>
 
         {/* Show the actual error so it can be reported */}
@@ -62,11 +130,10 @@ export default function Error({
           </button>
           <button
             onClick={() => {
-              // Clear session & local data, then reload — fixes stale session crashes
-              try {
-                localStorage.removeItem("tf_coach_session");
-              } catch {}
-              window.location.href = "/";
+              // Sign out and drop caches. Studies, drafts and notes are left
+              // alone — some of them exist nowhere else yet.
+              try { localStorage.removeItem("tf_coach_session"); } catch {}
+              reloadFresh();
             }}
             style={{
               flex: 1, padding: "12px 0", background: "none", color: "#567888",
