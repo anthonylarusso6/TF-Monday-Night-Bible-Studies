@@ -36,7 +36,12 @@ if (!url || !key) {
   process.exit(1);
 }
 
-const res = await fetch(`${url}/rest/v1/user_data?select=*`, { headers: { apikey: key } });
+// PostgREST decides the role from the Authorization bearer token; `apikey`
+// alone authenticates with the gateway but still runs as anon, which the
+// lockdown denies. Both headers are required for the service key to apply.
+const res = await fetch(`${url}/rest/v1/user_data?select=*`, {
+  headers: { apikey: key, Authorization: `Bearer ${key}` },
+});
 if (!res.ok) {
   const detail = await res.text();
   console.error(`Backup failed: HTTP ${res.status} ${detail}`);
