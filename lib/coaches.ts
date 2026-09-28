@@ -138,5 +138,7 @@ export async function verifyPin(name: string, pin: string): Promise<Coach | null
   return (coach as Coach) ?? null;
 }
 
-export const ROLES = ["Head Coach", "Assistant Coach", "Volunteer"];
+import { ROLE_SOCIAL_MEDIA } from "./roles";
+
+export const ROLES = ["Head Coach", "Assistant Coach", "Volunteer", ROLE_SOCIAL_MEDIA];
 export { LOCATIONS };

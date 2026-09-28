@@ -5,7 +5,8 @@ import { loadUserData, saveUserData, loadStudies, saveStudies } from "@/lib/supa
 import { Study, UserData } from "@/lib/types";
 import type { StudyStore } from "@/lib/supabase";
 import { LOCATIONS, Location } from "@/lib/locations";
-import { getSession, clearSession, CoachSession } from "@/lib/coaches";
+import { getSession, clearSession, setSession as saveSession, loadCoaches, CoachSession } from "@/lib/coaches";
+import { allowedTabs, defaultTab, isSocialMediaRole } from "@/lib/roles";
 import StudyGrid from "@/components/StudyGrid";
 import StudyModal from "@/components/StudyModal";
 import TopicIdeas from "@/components/TopicIdeas";
@@ -76,7 +77,24 @@ export default function Home() {
     // Load coach session
     const coachSession = getSession();
     setSession(coachSession);
+    setTab(defaultTab(coachSession?.role) as Tab);
     setSessionLoaded(true);
+
+    // A session remembers the role it was signed in with, so a role changed in
+    // Admin would otherwise only apply after signing out. Refresh it from the
+    // registry — but only on a confirmed read, never from a cached fallback.
+    if (coachSession) {
+      loadCoaches().then(({ ok, coaches }) => {
+        if (!ok) return;
+        const current = coaches.find((c) => c.id === coachSession.coachId);
+        if (!current) return;
+        if (current.role === coachSession.role && current.name === coachSession.name) return;
+        const updated: CoachSession = { ...coachSession, name: current.name, role: current.role };
+        saveSession(updated);
+        setSession(updated);
+        setTab(defaultTab(updated.role) as Tab);
+      });
+    }
 
     // Dark mode stays device-local on purpose — a coach's phone and laptop can
     // reasonably differ. Everything else is shared via Supabase.
@@ -121,6 +139,13 @@ export default function Home() {
     document.body.classList.toggle("dark", dark);
     localStorage.setItem("tf_dark", String(dark));
   }, [dark]);
+
+  // A restricted role is moved off any tab it isn't meant to see, however it
+  // got there — a stale session, a refreshed role, or a leftover state.
+  useEffect(() => {
+    const allowed = allowedTabs(session?.role);
+    if (allowed && !allowed.includes(tab)) setTab(defaultTab(session?.role) as Tab);
+  }, [session?.role, tab]);
 
   // Close sidebar on ESC
   useEffect(() => {
@@ -304,6 +329,11 @@ export default function Home() {
     setEditingGoal(false);
   }
 
+  const permitted = allowedTabs(session?.role);
+  const canOpen = (t: string) => !permitted || permitted.includes(t);
+  const socialOnly = isSocialMediaRole(session?.role);
+  const visibleNav = NAV.filter((n) => canOpen(n.id));
+
   // Reflections and the coach profile belong to one coach, not the location.
   // Under shared keys every coach at a site read and overwrote the same journal,
   // while the screen called it a private space.
@@ -385,8 +415,8 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="sidebar-section">Library</div>
-      {NAV.filter(n => n.section === "library").map((item) => (
+      {visibleNav.some(n => n.section === "library") && <div className="sidebar-section">Library</div>}
+      {visibleNav.filter(n => n.section === "library").map((item) => (
         <button key={item.id} className={`sidebar-item${tab === item.id ? " active" : ""}`} onClick={() => changeTab(item.id)}>
           <span className="sidebar-icon">{item.icon}</span>
           {item.label}
@@ -395,25 +425,29 @@ export default function Home() {
         </button>
       ))}
 
-      <hr className="sidebar-divider" />
-      <div className="sidebar-section">Tools</div>
-      {NAV.filter(n => n.section === "tools").map((item) => (
+      {visibleNav.some(n => n.section === "tools") && <>
+        <hr className="sidebar-divider" />
+        <div className="sidebar-section">Tools</div>
+      </>}
+      {visibleNav.filter(n => n.section === "tools").map((item) => (
         <button key={item.id} className={`sidebar-item${tab === item.id ? " active" : ""}`} onClick={() => changeTab(item.id)}>
           <span className="sidebar-icon">{item.icon}</span>
           {item.label}
         </button>
       ))}
 
-      <hr className="sidebar-divider" />
-      <div className="sidebar-section">Coach</div>
-      {NAV.filter(n => n.section === "coach").map((item) => (
+      {visibleNav.some(n => n.section === "coach") && <>
+        <hr className="sidebar-divider" />
+        <div className="sidebar-section">Coach</div>
+      </>}
+      {visibleNav.filter(n => n.section === "coach").map((item) => (
         <button key={item.id} className={`sidebar-item${tab === item.id ? " active" : ""}`} onClick={() => changeTab(item.id)}>
           <span className="sidebar-icon">{item.icon}</span>
           {item.label}
         </button>
       ))}
       {/* Admin — Head Coach only */}
-      {session?.role === "Head Coach" && (
+      {session?.role === "Head Coach" && canOpen("admin") && (
         <button className={`sidebar-item${tab === "admin" ? " active" : ""}`} onClick={() => changeTab("admin")}>
           <span className="sidebar-icon">⚙️</span>
           Admin
@@ -424,6 +458,7 @@ export default function Home() {
 
       {loaded && (
         <div className="sidebar-footer">
+          {!socialOnly && (<>
           <div className="sidebar-section" style={{ padding: "0 0 8px" }}>Season</div>
           <div className="sidebar-stats">
             <div className="sidebar-stat">
@@ -451,6 +486,8 @@ export default function Home() {
               <span className="sidebar-stat-val">2025–26</span>
             </div>
           </div>
+          </>)}
+
           {/* Logged-in coach */}
           {session && (
             <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0 8px", borderTop: "1px solid rgba(255,255,255,0.07)", marginTop: 4 }}>

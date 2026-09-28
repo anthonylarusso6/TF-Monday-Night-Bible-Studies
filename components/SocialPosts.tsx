@@ -4,6 +4,7 @@ import { Study, UserData } from "@/lib/types";
 import { socialCardText, copyToClipboard } from "@/lib/socialCard";
 import { loadPlan, getNextMondays, dateKey, speakerLabel, SPEAKER_TYPES } from "@/lib/plan";
 import SocialCard from "./SocialCard";
+import { renderSocialImage, imageFileName, shareOrDownload } from "@/lib/socialImage";
 
 interface SocialPostsProps {
   studies: Study[];
@@ -22,6 +23,7 @@ export default function SocialPosts({ studies, userData, onToast }: SocialPostsP
   const published = studies.filter((s) => !s.draft);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const selected =
     published.find((s) => String(s.id) === selectedId) ?? published[0] ?? null;
@@ -31,6 +33,20 @@ export default function SocialPosts({ studies, userData, onToast }: SocialPostsP
     date,
     planned: plan.find((p) => p.date === dateKey(date)),
   }));
+
+  async function saveImage() {
+    if (!selected || saving) return;
+    setSaving(true);
+    try {
+      const blob = await renderSocialImage(selected);
+      const how = await shareOrDownload(blob, imageFileName(selected));
+      onToast(how === "shared" ? "Ready to post." : "Image saved to your downloads.");
+    } catch (e) {
+      onToast(e instanceof Error ? e.message : "Couldn't make the image.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function copy() {
     if (!selected) return;
@@ -49,7 +65,7 @@ export default function SocialPosts({ studies, userData, onToast }: SocialPostsP
       <div style={{ marginBottom: 20 }}>
         <h3 style={{ fontSize: 18, fontWeight: 800, marginBottom: 4 }}>Social Posts</h3>
         <p style={{ fontSize: 13, color: "var(--text2)", fontFamily: "Arial, sans-serif", lineHeight: 1.6 }}>
-          The card for what was talked about, and who&apos;s speaking over the next month.
+          Save the picture, copy the caption, and see who&apos;s speaking over the next month.
         </p>
       </div>
 
@@ -76,21 +92,36 @@ export default function SocialPosts({ studies, userData, onToast }: SocialPostsP
           <SocialCard study={selected} />
 
           <button
-            onClick={copy}
+            onClick={saveImage}
+            disabled={saving}
             style={{
-              width: "100%", minHeight: 52, padding: "14px 16px", marginTop: 4,
-              background: copied ? "var(--series-rel)" : "var(--primary)",
-              color: "white", border: "none", borderRadius: 11,
-              fontSize: 15, fontWeight: 700, cursor: "pointer",
-              WebkitTapHighlightColor: "transparent", transition: "background 0.15s",
+              width: "100%", minHeight: 54, padding: "15px 16px", marginTop: 4,
+              background: "var(--primary)", color: "white", border: "none", borderRadius: 11,
+              fontSize: 15.5, fontWeight: 700, cursor: saving ? "default" : "pointer",
+              opacity: saving ? 0.65 : 1,
+              WebkitTapHighlightColor: "transparent", transition: "opacity 0.15s",
             }}
           >
-            {copied ? "✓ Copied" : "📋 Copy Post Text"}
+            {saving ? "Making the image…" : "📸 Save Picture for Instagram"}
+          </button>
+
+          <button
+            onClick={copy}
+            style={{
+              width: "100%", minHeight: 50, padding: "13px 16px", marginTop: 8,
+              background: copied ? "var(--series-rel)" : "var(--bg)",
+              color: copied ? "white" : "var(--text)",
+              border: `1.5px solid ${copied ? "var(--series-rel)" : "var(--border)"}`,
+              borderRadius: 11, fontSize: 14.5, fontWeight: 700,
+              cursor: "pointer", WebkitTapHighlightColor: "transparent", transition: "background 0.15s",
+            }}
+          >
+            {copied ? "✓ Caption copied" : "📋 Copy Caption"}
           </button>
 
           <details style={{ marginTop: 10 }}>
             <summary style={{ fontSize: 12.5, color: "var(--text2)", fontFamily: "Arial, sans-serif", cursor: "pointer", padding: "10px 0", minHeight: 40 }}>
-              Show the text
+              Show the caption text
             </summary>
             <textarea
               readOnly
