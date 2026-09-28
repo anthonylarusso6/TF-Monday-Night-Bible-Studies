@@ -1,51 +1,15 @@
 "use client";
 import { useState } from "react";
 import { Study, UserData } from "@/lib/types";
+import {
+  SpeakerType, PlannedSession, SPEAKER_TYPES, loadPlan, getNextMondays,
+} from "@/lib/plan";
 import { TOPIC_CATEGORIES } from "@/lib/topics";
-
-type SpeakerType = "coach" | "testimony" | "guest";
-
-interface PlannedSession {
-  date: string;
-  studyId?: string | number;
-  topic?: string;
-  speaker?: string;
-  speakerType?: SpeakerType;
-  notes?: string;
-}
-
-const SPEAKER_TYPES: { value: SpeakerType; label: string; icon: string; color: string; placeholder: string }[] = [
-  { value: "coach",     label: "Coach / Leader",     icon: "🎤", color: "var(--accent)",    placeholder: "e.g. Anthony, Coach Lee..." },
-  { value: "testimony", label: "Student Testimony",  icon: "👤", color: "var(--series-rel)", placeholder: "Student's name" },
-  { value: "guest",     label: "Guest Speaker",      icon: "✝️", color: "var(--series-iw)",  placeholder: "e.g. Pastor Johnson..." },
-];
 
 interface SeasonPlannerProps {
   allStudies: Study[];
   userData: UserData;
   onSave: (plan: PlannedSession[]) => void;
-}
-
-function loadPlan(userData: UserData): PlannedSession[] {
-  try {
-    const raw = (userData.notes as Record<string, string>)._plan;
-    return raw ? JSON.parse(raw) : [];
-  } catch { return []; }
-}
-
-function getNextMondays(count: number): Date[] {
-  const mondays: Date[] = [];
-  const today = new Date();
-  const d = new Date(today);
-  const day = d.getDay();
-  const diff = day === 1 ? 0 : day === 0 ? 1 : 8 - day;
-  d.setDate(d.getDate() + diff);
-  d.setHours(0, 0, 0, 0);
-  for (let i = 0; i < count; i++) {
-    mondays.push(new Date(d));
-    d.setDate(d.getDate() + 7);
-  }
-  return mondays;
 }
 
 const ALL_TOPICS = TOPIC_CATEGORIES.flatMap(c => c.topics);

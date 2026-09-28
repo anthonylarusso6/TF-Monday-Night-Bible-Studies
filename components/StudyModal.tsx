@@ -4,6 +4,8 @@ import { Study, UserData } from "@/lib/types";
 import { generateLeaderPDF, generateStudentPDF } from "@/lib/generatePDF";
 import SessionTimer from "./SessionTimer";
 import StudySections from "./StudySections";
+import { socialCardText, copyToClipboard } from "@/lib/socialCard";
+import SocialCard from "./SocialCard";
 import dynamic from "next/dynamic";
 const QRCodeCanvas = dynamic(() => import("qrcode").then(mod => {
   // Use qrcode to generate a data URL, render as img
@@ -65,23 +67,6 @@ export default function StudyModal({
     return () => window.removeEventListener("keydown", handler);
   }, [onClose]);
 
-  function copyText(txt: string) {
-    try {
-      const ta = document.createElement("textarea");
-      ta.value = txt;
-      ta.style.position = "fixed";
-      ta.style.left = "-9999px";
-      document.body.appendChild(ta);
-      ta.focus();
-      ta.select();
-      document.execCommand("copy");
-      document.body.removeChild(ta);
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
   function doDownload() {
     const allV = [study.anchor, ...study.sup];
     const vHtml = allV
@@ -119,7 +104,7 @@ h1{font-size:22px;text-align:center;margin-bottom:4px}.th{font-size:13px;text-al
     onToast("Downloaded!");
   }
 
-  function doCopyFull() {
+  async function doCopyFull() {
     let txt = `TF BIBLE STUDIES\n${study.title} | ${study.date}\n\nBIG IDEA\n${study.bi}\n\nANCHOR VERSE\n${study.anchor.ref}\n"${study.anchor.text}"\n\nVERSE BREAKDOWN\n`;
     for (const b of study.bd) {
       txt += `\n${b.ph}\n`;
@@ -136,13 +121,14 @@ h1{font-size:22px;text-align:center;margin-bottom:4px}.th{font-size:13px;text-al
     txt += "\n3 TAKEAWAYS\n";
     for (let i = 0; i < study.tk.length; i++) txt += `\n${i + 1}. ${study.tk[i].ti}\n${study.tk[i].bo}\n`;
     if (notes) txt += `\nLEADER NOTES\n${notes}\n`;
-    copyText(txt) ? onToast("Full study copied!") : onToast("Could not copy — try again.");
+    const ok = await copyToClipboard(txt);
+    onToast(ok ? "Full study copied!" : "Could not copy — try again.");
   }
 
-  function doCopyCard() {
-    let txt = `TF Monday Night Bible Study's\n${study.title} | ${study.date}\n\n${study.bi}\n\n3 Takeaways\n`;
-    for (let i = 0; i < study.tk.length; i++) txt += `${i + 1}. ${study.tk[i].ti}\n`;
-    copyText(txt) ? onToast("Social card text copied!") : onToast("Could not copy — try again.");
+  async function doCopyCard() {
+    // Same text the Social Posts screen produces, so the two can't drift.
+    const ok = await copyToClipboard(socialCardText(study));
+    onToast(ok ? "Post text copied!" : "Could not copy — try again.");
   }
 
   const socialRef = useRef<HTMLDivElement>(null);
@@ -338,18 +324,8 @@ h1{font-size:22px;text-align:center;margin-bottom:4px}.th{font-size:13px;text-al
               {/* Social card */}
               <hr className="divider" />
               <div className="divider-label">Social Media Card</div>
-              <div className="social-card" ref={socialRef}>
-                <div className="social-card-logo">TF Monday Night Bible Study's</div>
-                <div className="social-card-title">{study.title}</div>
-                <div className="social-card-meta">
-                  {study.date}{study.series ? ` · ${study.series}` : ""}
-                </div>
-                <div className="social-card-bi">{study.bi}</div>
-                <div className="social-card-tk-label">3 Takeaways</div>
-                {study.tk.map((t, i) => (
-                  <div key={i} className="social-card-tk">{i + 1}. {t.ti}</div>
-                ))}
-                <div className="social-card-footer">@TFBibleStudies</div>
+              <div ref={socialRef}>
+                <SocialCard study={study} />
               </div>
               <button className="btn btn-outline" onClick={doCopyCard}>📋 Copy Social Card Text</button>
             </>

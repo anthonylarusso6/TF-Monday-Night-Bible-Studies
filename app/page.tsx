@@ -14,12 +14,13 @@ import AttendanceChart from "@/components/AttendanceChart";
 import CoachGrow from "@/components/CoachGrow";
 import PrayerRequests from "@/components/PrayerRequests";
 import SeasonPlanner from "@/components/SeasonPlanner";
+import SocialPosts from "@/components/SocialPosts";
 import LocationDashboard from "@/components/LocationDashboard";
 import PinLogin from "@/components/PinLogin";
 import AdminPanel from "@/components/AdminPanel";
 import Toast from "@/components/Toast";
 
-type Tab = "all" | "liked" | "drafts" | "series" | "topics" | "create" | "chart" | "grow" | "prayer" | "planner" | "dashboard" | "admin";
+type Tab = "all" | "liked" | "drafts" | "series" | "topics" | "create" | "chart" | "grow" | "prayer" | "planner" | "dashboard" | "social" | "admin";
 
 const NAV = [
   { id: "all" as Tab,       icon: "📖", label: "All Studies",    section: "library" },
@@ -30,6 +31,7 @@ const NAV = [
   { id: "create" as Tab,    icon: "✏️", label: "Create Study",   section: "tools"   },
   { id: "prayer" as Tab,    icon: "🙏", label: "Prayer Requests",section: "tools"   },
   { id: "planner" as Tab,   icon: "📅", label: "Season Planner", section: "tools"   },
+  { id: "social" as Tab,    icon: "📣", label: "Social Posts",   section: "tools"   },
   { id: "chart" as Tab,     icon: "📊", label: "Attendance",     section: "tools"   },
   { id: "dashboard" as Tab, icon: "🏟", label: "All Locations",  section: "tools"   },
   { id: "grow" as Tab,      icon: "🌱", label: "Coach Grow",     section: "coach"   },
@@ -38,7 +40,8 @@ const NAV = [
 const TITLES: Record<Tab, string> = {
   all: "All Studies", liked: "Liked", drafts: "Drafts", series: "Series",
   topics: "Topic Ideas", create: "Create Study", chart: "Attendance", grow: "Coach Grow",
-  prayer: "Prayer Requests", planner: "Season Planner", dashboard: "All Locations", admin: "Admin",
+  prayer: "Prayer Requests", planner: "Season Planner", dashboard: "All Locations",
+  social: "Social Posts", admin: "Admin",
 };
 
 const GRID_TABS = new Set<Tab>(["all", "liked", "drafts", "series"]);
@@ -590,6 +593,9 @@ export default function Home() {
               }}
             />
           )}
+          {tab === "social" && (
+            <SocialPosts studies={allStudies} userData={userData} onToast={showToast} />
+          )}
           {tab === "prayer" && (
             <PrayerRequests
               userData={userData}
@@ -617,10 +623,13 @@ export default function Home() {
         </div>
       </div>
 
-      {/* FAB — mobile only, always accessible */}
-      <button className="fab" onClick={() => changeTab("create")}>
-        ✏️ Create
-      </button>
+      {/* FAB — mobile only. Hidden where it would sit on top of the screen's
+          own main action, and on Create itself where it does nothing. */}
+      {tab !== "create" && tab !== "social" && (
+        <button className="fab" onClick={() => changeTab("create")}>
+          ✏️ Create
+        </button>
+      )}
 
       {openStudy && (
         <StudyModal study={openStudy} userData={userData} onClose={() => setOpenStudyId(null)}
