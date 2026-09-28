@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { LOCATIONS } from "@/lib/locations";
+import { requireCoach } from "@/lib/auth";
 
 /**
  * Reads and writes a location's rows through the server, so the browser never
@@ -22,6 +23,11 @@ function validId(id: string): boolean {
 }
 
 export async function GET(req: NextRequest) {
+  // The location row holds prayer requests, leader notes and attendance, so
+  // reading is gated as well as writing.
+  const auth = await requireCoach(req);
+  if (!auth.ok) return auth.response;
+
   const id = req.nextUrl.searchParams.get("id") || "";
   if (!validId(id)) {
     return NextResponse.json({ ok: false, error: "Unknown id" }, { status: 400 });
@@ -41,6 +47,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireCoach(req);
+  if (!auth.ok) return auth.response;
+
   let body: Record<string, unknown>;
   try { body = await req.json(); }
   catch { return NextResponse.json({ ok: false, error: "Bad request" }, { status: 400 }); }

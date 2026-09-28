@@ -7,11 +7,13 @@ import {
 
 interface PinLoginProps {
   onLogin: (session: CoachSession) => void;
+  /** Why the coach is seeing the login screen, when it isn't a normal start. */
+  notice?: string | null;
 }
 
 type View = "name" | "pin" | "setup" | "addCoach" | "offline";
 
-export default function PinLogin({ onLogin }: PinLoginProps) {
+export default function PinLogin({ onLogin, notice }: PinLoginProps) {
   const [view, setView] = useState<View>("name");
   const [coaches, setCoaches] = useState<Coach[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,20 +57,23 @@ export default function PinLogin({ onLogin }: PinLoginProps) {
     setVerifying(true);
     setError("");
     try {
-      const coach = await verifyPin(nameInput, pin);
-      if (coach) {
+      const { coach, token, lockedMinutes } = await verifyPin(nameInput, pin);
+      if (coach && token) {
         const session: CoachSession = {
           coachId: coach.id,
           name: coach.name,
           role: coach.role,
           locationId: coach.locationId,
+          token,
         };
         setSession(session);
         onLogin(session);
         return;
       }
       setPin("");
-      setError("Wrong PIN. Try again.");
+      setError(lockedMinutes
+        ? `Too many wrong PINs. Wait ${lockedMinutes} minute${lockedMinutes === 1 ? "" : "s"} and try again.`
+        : "Wrong PIN. Try again.");
       setShake(true);
       setTimeout(() => setShake(false), 500);
     } catch {
@@ -91,10 +96,16 @@ export default function PinLogin({ onLogin }: PinLoginProps) {
     }
     setError(""); setSaving(true);
     try {
-      const coach = await addCoach({ name: newName.trim(), pin: newPin, role: newRole, locationId: newLocation });
+      const { coach, token } = await addCoach({ name: newName.trim(), pin: newPin, role: newRole, locationId: newLocation });
       setCoaches([...coaches, coach]);
-      // Auto login as the new coach
-      const session: CoachSession = { coachId: coach.id, name: coach.name, role: coach.role, locationId: coach.locationId };
+      if (!token) {
+        // Only the very first account signs straight in.
+        setError("Account created. Sign in with its PIN.");
+        setSaving(false);
+        setView("name");
+        return;
+      }
+      const session: CoachSession = { coachId: coach.id, name: coach.name, role: coach.role, locationId: coach.locationId, token };
       setSession(session);
       onLogin(session);
     } catch (e) {
@@ -181,6 +192,11 @@ export default function PinLogin({ onLogin }: PinLoginProps) {
           {/* ── Name selection ── */}
           {view === "name" && (
             <div>
+              {notice && (
+                <div style={{ fontSize: 12.5, color: "#0f4f6a", background: "#eaf5fa", border: "1px solid #c8e3ef", borderRadius: 8, padding: "9px 12px", marginBottom: 14, fontFamily: "Arial, sans-serif", lineHeight: 1.5 }}>
+                  {notice}
+                </div>
+              )}
               <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 4, color: "#0f2530" }}>Coach Login</div>
               <p style={{ fontSize: 13, color: "#567888", marginBottom: 18, fontFamily: "Arial, sans-serif" }}>Who&apos;s leading tonight?</p>
               <input
@@ -215,7 +231,9 @@ export default function PinLogin({ onLogin }: PinLoginProps) {
                   connection, because PINs are only checked on the server.
                 </div>
               ) : (
-                <button onClick={() => setView("addCoach")} style={ghostBtnStyle}>＋ Add New Coach</button>
+                <div style={{ fontSize: 12, color: "#567888", textAlign: "center", fontFamily: "Arial, sans-serif", lineHeight: 1.5, padding: "4px 8px" }}>
+                  Not listed? Ask your Head Coach to add you.
+                </div>
               )}
             </div>
           )}

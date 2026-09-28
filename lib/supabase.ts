@@ -2,6 +2,7 @@ import { Study, UserData } from "./types";
 import { DEFAULT_LOCATION } from "./locations";
 import type { StudyStore } from "./types";
 import { mergeStores, mergeUserData } from "./merge";
+import { authFetch } from "./session";
 
 // Re-exported so callers keep importing the type from here.
 export type { StudyStore };
@@ -33,14 +34,14 @@ interface DataRow {
 }
 
 async function apiGet(id: string): Promise<DataRow | null> {
-  const res = await fetch(`/api/data?id=${encodeURIComponent(id)}`, { cache: "no-store" });
+  const res = await authFetch(`/api/data?id=${encodeURIComponent(id)}`, { cache: "no-store" });
   const body = await res.json();
   if (!res.ok || !body.ok) throw new Error(body.error || `Request failed (${res.status})`);
   return (body.row as DataRow | null) ?? null;
 }
 
 async function apiPut(row: Record<string, unknown>): Promise<void> {
-  const res = await fetch("/api/data", {
+  const res = await authFetch("/api/data", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(row),

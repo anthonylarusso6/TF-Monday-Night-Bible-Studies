@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import { authFetch } from "@/lib/session";
 import { Study } from "@/lib/types";
 
 interface CreateStudyProps {
@@ -40,7 +41,7 @@ export default function CreateStudy({ prefilledTopic, onStudyCreated, onToast }:
     setLoading(true);
 
     try {
-      const res = await fetch("/api/generate", {
+      const res = await authFetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ topic: t }),
@@ -68,7 +69,7 @@ export default function CreateStudy({ prefilledTopic, onStudyCreated, onToast }:
     setLoading(true);
 
     try {
-      const res = await fetch("/api/import", {
+      const res = await authFetch("/api/import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ raw: text }),

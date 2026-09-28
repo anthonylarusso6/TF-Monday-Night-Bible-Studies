@@ -1,6 +1,8 @@
 import { LOCATIONS } from "./locations";
+import { authFetch, getSession, setSession } from "./session";
+export { getSession, setSession, clearSession } from "./session";
+export type { CoachSession } from "./session";
 
-const SESSION_KEY = "tf_coach_session";
 const CACHE_KEY = "tf_coaches_cache";
 
 /**
@@ -11,13 +13,6 @@ const CACHE_KEY = "tf_coaches_cache";
  */
 export interface Coach {
   id: string;
-  name: string;
-  role: string;
-  locationId: string;
-}
-
-export interface CoachSession {
-  coachId: string;
   name: string;
   role: string;
   locationId: string;
@@ -44,23 +39,6 @@ export class RegistryUnavailableError extends Error {
   }
 }
 
-// ── Session ───────────────────────────────────────────────────────────────────
-
-export function getSession(): CoachSession | null {
-  try {
-    const raw = localStorage.getItem(SESSION_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch { return null; }
-}
-
-export function setSession(session: CoachSession) {
-  localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-}
-
-export function clearSession() {
-  localStorage.removeItem(SESSION_KEY);
-}
-
 // ── Registry (server-backed) ─────────────────────────────────────────────────
 
 function readCache(): Coach[] {
@@ -76,7 +54,7 @@ function writeCache(coaches: Coach[]) {
 }
 
 async function post(body: Record<string, unknown>) {
-  const res = await fetch("/api/coaches", {
+  const res = await authFetch("/api/coaches", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -110,15 +88,25 @@ export interface NewCoach {
   pin: string;
 }
 
-export async function addCoach(coach: NewCoach): Promise<Coach> {
-  const { coach: created } = await post({ action: "add", ...coach });
-  return created as Coach;
+/**
+ * Adds a coach. `token` is only returned when this is the very first account,
+ * which signs straight in; otherwise it's a Head Coach adding someone else.
+ */
+export async function addCoach(coach: NewCoach): Promise<{ coach: Coach; token?: string }> {
+  const { coach: created, token } = await post({ action: "add", ...coach });
+  return { coach: created as Coach, token };
 }
 
 export async function updateCoach(update: {
   id: string; name?: string; role?: string; locationId?: string; pin?: string;
 }): Promise<Coach[]> {
-  const { coaches } = await post({ action: "update", ...update });
+  const { coaches, token } = await post({ action: "update", ...update });
+  // Changing your own PIN invalidates your old sign-in; the server sends a
+  // replacement so you aren't signed out mid-edit.
+  if (token) {
+    const current = getSession();
+    if (current) setSession({ ...current, token });
+  }
   writeCache(coaches as Coach[]);
   return coaches as Coach[];
 }
@@ -129,13 +117,20 @@ export async function removeCoach(id: string): Promise<Coach[]> {
   return coaches as Coach[];
 }
 
+export interface SignInResult {
+  coach: Coach | null;
+  token?: string;
+  /** Set when too many wrong PINs have locked this name for a while. */
+  lockedMinutes?: number;
+}
+
 /**
- * Checks a PIN on the server and returns the coach when it matches.
- * Requires a connection by design — the PIN list is not on this device.
+ * Checks a PIN on the server. Requires a connection by design — the PIN list
+ * is not on this device.
  */
-export async function verifyPin(name: string, pin: string): Promise<Coach | null> {
-  const { coach } = await post({ action: "verify", name, pin });
-  return (coach as Coach) ?? null;
+export async function verifyPin(name: string, pin: string): Promise<SignInResult> {
+  const { coach, token, lockedMinutes } = await post({ action: "verify", name, pin });
+  return { coach: (coach as Coach) ?? null, token, lockedMinutes };
 }
 
 import { ROLE_SOCIAL_MEDIA } from "./roles";

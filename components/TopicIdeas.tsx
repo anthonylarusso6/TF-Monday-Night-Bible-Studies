@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { authFetch } from "@/lib/session";
 import { TOPIC_CATEGORIES } from "@/lib/topics";
 
 interface SpinOff {
@@ -26,7 +27,7 @@ export default function TopicIdeas({ onCreateDraft, onQuickCreate }: TopicIdeasP
 
     setLoading(topic);
     try {
-      const res = await fetch("/api/spinoffs", {
+      const res = await authFetch("/api/spinoffs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ topic }),

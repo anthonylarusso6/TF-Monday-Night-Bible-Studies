@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import { authFetch } from "@/lib/session";
 import { LEADERSHIP_PRINCIPLES, DAILY_VERSES, LeadershipPrinciple } from "@/lib/leadership";
 import { RESOURCE_LIBRARY, Resource } from "@/lib/resources";
 import { Study, UserData } from "@/lib/types";
@@ -144,7 +145,7 @@ export default function CoachGrow({ latestStudy, allStudies, userData, attendanc
     if (!latestStudy) return;
     setPrepError(""); setPrepLoading(true);
     try {
-      const res = await fetch("/api/studyprep", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ study: latestStudy }) });
+      const res = await authFetch("/api/studyprep", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ study: latestStudy }) });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setPrepGuide(data.prep);

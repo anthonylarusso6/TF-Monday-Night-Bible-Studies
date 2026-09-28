@@ -59,7 +59,7 @@ export default function AdminPanel({ session }: AdminPanelProps) {
     }
     setError(""); setSaving(true);
     try {
-      const newCoach = await addCoach({ name: name.trim(), pin, role, locationId });
+      const { coach: newCoach } = await addCoach({ name: name.trim(), pin, role, locationId });
       setCoaches(prev => [...prev, newCoach]);
       setView("list");
       showToast(`${newCoach.name} added!`);

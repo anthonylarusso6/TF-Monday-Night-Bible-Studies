@@ -6,6 +6,7 @@ import { Study, UserData } from "@/lib/types";
 import type { StudyStore } from "@/lib/supabase";
 import { LOCATIONS, Location } from "@/lib/locations";
 import { getSession, clearSession, setSession as saveSession, loadCoaches, CoachSession } from "@/lib/coaches";
+import { AUTH_EXPIRED_EVENT } from "@/lib/session";
 import { allowedTabs, defaultTab, isSocialMediaRole } from "@/lib/roles";
 import StudyGrid from "@/components/StudyGrid";
 import StudyModal from "@/components/StudyModal";
@@ -49,6 +50,7 @@ const GRID_TABS = new Set<Tab>(["all", "liked", "drafts", "series"]);
 
 export default function Home() {
   const [session, setSession] = useState<CoachSession | null>(null);
+  const [loginNotice, setLoginNotice] = useState<string | null>(null);
   const [sessionLoaded, setSessionLoaded] = useState(false);
   const [tab, setTab] = useState<Tab>("all");
   const [search, setSearch] = useState("");
@@ -74,8 +76,15 @@ export default function Home() {
   const [pendingUpload, setPendingUpload] = useState(false);
 
   useEffect(() => {
-    // Load coach session
-    const coachSession = getSession();
+    // Load coach session. One saved before sign-ins carried a token can't make
+    // any request the server will accept, so it's treated as signed out — the
+    // coach enters their PIN once and gets a token.
+    let coachSession = getSession();
+    if (coachSession && !coachSession.token) {
+      clearSession();
+      coachSession = null;
+      setLoginNotice("For security, please enter your PIN once more.");
+    }
     setSession(coachSession);
     setTab(defaultTab(coachSession?.role) as Tab);
     setSessionLoaded(true);
@@ -103,6 +112,7 @@ export default function Home() {
     const savedLocationId = coachSession?.locationId || localStorage.getItem("tf_location") || LOCATIONS[0].id;
     setLocation(LOCATIONS.find(l => l.id === savedLocationId) || LOCATIONS[0]);
 
+    if (!coachSession) return;
     Promise.all([loadUserData(savedLocationId), loadStudies(savedLocationId)])
       .then(([u, st]) => {
         applyUserData(u.data);
@@ -110,6 +120,19 @@ export default function Home() {
         setPendingUpload(!(u.ok && st.ok));
         setLoaded(true);
       });
+  }, []);
+
+  // The server rejected this device's sign-in — expired, PIN changed, or the
+  // coach was removed. Show the login screen instead of letting every save fail.
+  // Local data is untouched, and syncs up again after signing back in.
+  useEffect(() => {
+    const onExpired = () => {
+      clearSession();
+      setSession(null);
+      setLoginNotice("Please sign in again.");
+    };
+    window.addEventListener(AUTH_EXPIRED_EVENT, onExpired);
+    return () => window.removeEventListener(AUTH_EXPIRED_EVENT, onExpired);
   }, []);
 
   /**
@@ -515,8 +538,10 @@ export default function Home() {
   // Show PIN login if session not loaded yet or not logged in
   if (!sessionLoaded) return null;
   if (!session) return (
-    <PinLogin onLogin={(s) => {
+    <PinLogin notice={loginNotice} onLogin={(s) => {
+      setLoginNotice(null);
       setSession(s);
+      setTab(defaultTab(s.role) as Tab);
       // Set location based on coach's assigned location
       const loc = LOCATIONS.find(l => l.id === s.locationId) || LOCATIONS[0];
       switchLocation(loc);
