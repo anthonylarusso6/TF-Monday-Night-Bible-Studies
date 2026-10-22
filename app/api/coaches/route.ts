@@ -105,7 +105,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: false, error: "Name, role, at least one location and a 4-digit PIN are required." }, { status: 400 });
       }
       if (!SIGNUP_ROLES.includes(role)) {
-        return NextResponse.json({ ok: false, error: "Pick Assistant Coach, Volunteer, Head Coach or Social Media." }, { status: 403 });
+        return NextResponse.json({ ok: false, error: "Pick Assistant Coach, Volunteer, Head Coach, Admin or Social Media." }, { status: 403 });
       }
       if (coaches.some((c) => c.name.toLowerCase() === name.toLowerCase())) {
         // Same words whoever holds the name, so this can't be used to find out who is registered.

@@ -54,8 +54,11 @@ export const MANAGER_ROLES = [ROLE_CREATOR];
 /** The only roles a location Admin can hand out: nobody can promote someone above or level with themselves. */
 export const ADMIN_ASSIGNABLE = ["Assistant Coach", "Volunteer", ROLE_SOCIAL_MEDIA];
 
-/** What someone can pick when signing up from the login screen. Nothing here carries admin or AI power. */
-export const SIGNUP_ROLES = ["Assistant Coach", "Volunteer", "Head Coach", ROLE_SOCIAL_MEDIA];
+/**
+ * What someone can pick when signing up from the login screen. Nothing here carries admin or AI power: "Admin" is
+ * only a title, and sees exactly what any other coach sees (the Admin portal is the Creator's alone).
+ */
+export const SIGNUP_ROLES = ["Assistant Coach", "Volunteer", "Head Coach", ROLE_ADMIN, ROLE_SOCIAL_MEDIA];
 
 export function isManager(role: string | undefined): boolean {
   return !!role && MANAGER_ROLES.includes(role);
