@@ -5,14 +5,17 @@ import { loadMyStudies, saveMyStudies } from "@/lib/myStudies";
 import { TOPIC_GUIDES } from "@/lib/topicGuides";
 import { SERIES_OPTIONS as SERIES } from "@/lib/topics";
 
-type Building = Study & { updatedAt?: number };
+type Building = Study & { updatedAt?: number; /** Set when this is an edit of a finished study: finishing replaces it. */ editsId?: string | number };
 
 interface Props {
   coachId: string;
   /** A topic picked on Topic Ideas: starts a new study with its anchor verse and hints filled in. */
   startTopic?: string;
   onStartTopicUsed: () => void;
-  onPublish: (study: Study) => Promise<void> | void;
+  /** A finished study to edit: opens a copy here, and finishing replaces the original. */
+  editStudy?: Study;
+  onEditUsed?: () => void;
+  onPublish: (study: Study, replacesId?: string | number) => Promise<void> | void;
   onToast: (msg: string) => void;
 }
 
@@ -46,7 +49,7 @@ const card: React.CSSProperties = { background: "var(--card)", border: "1px soli
 const hint: React.CSSProperties = { fontSize: 12, color: "var(--text2)", fontFamily: "Arial, sans-serif", lineHeight: 1.5, marginBottom: 8 };
 const small: React.CSSProperties = { background: "none", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 12px", minHeight: 40, fontSize: 13, fontWeight: 600, color: "var(--text2)", cursor: "pointer" };
 
-export default function StudyBuilder({ coachId, startTopic, onStartTopicUsed, onPublish, onToast }: Props) {
+export default function StudyBuilder({ coachId, startTopic, onStartTopicUsed, editStudy, onEditUsed, onPublish, onToast }: Props) {
   const [studies, setStudies] = useState<Building[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [currentId, setCurrentId] = useState<string | null>(null);
@@ -68,6 +71,30 @@ export default function StudyBuilder({ coachId, startTopic, onStartTopicUsed, on
     setCurrentId(String(b.id));
     onStartTopicUsed();
   }, [loaded, startTopic, coachId, onStartTopicUsed]);
+
+  // Edit a finished study: work on a copy (reusing one already open for it), and finishing replaces the original.
+  useEffect(() => {
+    if (!loaded || !editStudy) return;
+    const existing = studies.find((s) => s.editsId !== undefined && String(s.editsId) === String(editStudy.id));
+    if (existing) {
+      setCurrentId(String(existing.id));
+    } else {
+      const copy: Building = JSON.parse(JSON.stringify(editStudy));
+      const pad = <T,>(a: T[] | undefined, blank: T): T[] => (a && a.length ? a : [blank]);
+      Object.assign(copy, {
+        id: `build_${Date.now()}`, editsId: editStudy.id, draft: true, updatedAt: Date.now(),
+        sup: pad(copy.sup, { ref: "", text: "" }), sbd: pad(copy.sbd, { ref: "", pt: "" }),
+        bd: pad(copy.bd, { ph: "", pts: [""], co: { lb: "Say this to your students", tx: "" } }),
+        qs: pad(copy.qs, { q: "", a: "" }), tk: pad(copy.tk, { ti: "", bo: "" }),
+      });
+      const next = [copy, ...studies];
+      setStudies(next);
+      void saveMyStudies(coachId, next);
+      setCurrentId(String(copy.id));
+    }
+    onEditUsed?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loaded, editStudy]);
 
   const save = useCallback((next: Building[]) => {
     setStatus("saving");
@@ -117,7 +144,7 @@ export default function StudyBuilder({ coachId, startTopic, onStartTopicUsed, on
     setPublishing(true);
     const clean: Study = {
       id: `written_${Date.now()}`,
-      date: today(),
+      date: current.editsId !== undefined ? current.date : today(),
       title: current.title.trim(),
       series: current.series,
       draft: false,
@@ -134,7 +161,7 @@ export default function StudyBuilder({ coachId, startTopic, onStartTopicUsed, on
       tk: current.tk.filter((t) => t.ti.trim()).map((t) => ({ ti: t.ti.trim(), bo: t.bo.trim() })),
     };
     try {
-      await onPublish(clean);
+      await onPublish(clean, current.editsId);
       const next = studies.filter((s) => String(s.id) !== currentId);
       setStudies(next);
       await saveMyStudies(coachId, next);
@@ -158,7 +185,7 @@ export default function StudyBuilder({ coachId, startTopic, onStartTopicUsed, on
           {studies.map((s) => (
             <div key={String(s.id)} style={{ ...card, marginBottom: 0, display: "flex", alignItems: "center", gap: 10 }}>
               <button onClick={() => setCurrentId(String(s.id))} style={{ flex: 1, textAlign: "left", background: "none", border: "none", cursor: "pointer", padding: 0, minWidth: 0 }}>
-                <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text)" }}>{s.title || "Untitled study"}</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text)" }}>{s.title || "Untitled study"}{s.editsId !== undefined && <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 800, color: "var(--accent)", textTransform: "uppercase" }}>Editing</span>}</div>
                 <div style={{ fontSize: 12, color: "var(--text2)", fontFamily: "Arial, sans-serif" }}>{s.anchor.ref || "No verse yet"}</div>
               </button>
               <button style={small} onClick={() => setCurrentId(String(s.id))}>Continue</button>
@@ -296,7 +323,7 @@ export default function StudyBuilder({ coachId, startTopic, onStartTopicUsed, on
       </div>
 
       <button className="btn btn-primary" style={{ width: "100%", minHeight: 48 }} onClick={publish} disabled={publishing}>
-        {publishing ? "Finishing…" : "Finish study — get the handout & social card"}
+        {publishing ? "Finishing…" : current.editsId !== undefined ? "Save changes" : "Finish study — get the handout & social card"}
       </button>
       <p style={{ ...hint, textAlign: "center", marginTop: 8 }}>You can keep it here as long as you like. It saves as you type.</p>
     </div>

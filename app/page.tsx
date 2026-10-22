@@ -54,6 +54,8 @@ const GRID_TABS = new Set<Tab>(["all", "liked", "drafts", "series"]);
 export default function Home() {
   const [session, setSession] = useState<CoachSession | null>(null);
   // coach id → name, to say who wrote each study on the Other Coaches' Studies screen.
+  const [pendingSignups, setPendingSignups] = useState(0);
+  const [editStudy, setEditStudy] = useState<Study | undefined>(undefined);
   const [previews, setPreviews] = useState<Study[]>([]);
   const [builderTopic, setBuilderTopic] = useState<string | undefined>(undefined);
   const [coachNames, setCoachNames] = useState<Record<string, string>>({});
@@ -105,6 +107,7 @@ export default function Home() {
       loadCoaches().then(({ ok, coaches }) => {
         if (!ok) return;
         setCoachNames(Object.fromEntries(coaches.map((c) => [c.id, c.name])));
+        setPendingSignups(coaches.filter((c) => c.pending).length);
         setCreatorName(coaches.find((c) => c.role === "Creator" || c.role === "Lead Coach")?.name ?? "");
         const current = coaches.find((c) => c.id === coachSession.coachId);
         if (!current) return;
@@ -345,6 +348,14 @@ export default function Home() {
     const ok = await persistStudies({ studies: updatedGen, hiddenIds: [...nextHidden] });
     if (ok) showToast("Study removed.");
   }
+  // Your own studies can be edited, unless they were pasted in as sections (those keep their original layout).
+  const canEdit = (s: Study) => !s.draft && !s.sections && (isCreator || s.createdBy === session?.coachId);
+  /** Saves an edited study in place: same id, same owner. */
+  async function handleStudyUpdated(updated: Study) {
+    const next = generatedStudies.map((s) => (String(s.id) === String(updated.id) ? { ...updated, createdBy: s.createdBy ?? session?.coachId } : s));
+    setGeneratedStudies(next);
+    await persistStudies({ studies: next });
+  }
   async function handleStudyCreated(made: Study) {
     const study: Study = { ...made, createdBy: session?.coachId };
     const updated = [study, ...generatedStudies];
@@ -491,6 +502,7 @@ export default function Home() {
         <button className={`sidebar-item${tab === "admin" ? " active" : ""}`} onClick={() => changeTab("admin")}>
           <span className="sidebar-icon">⚙️</span>
           Admin
+          {pendingSignups > 0 && <span className="sidebar-badge">{pendingSignups}</span>}
         </button>
       )}
 
@@ -659,7 +671,14 @@ export default function Home() {
                   coachId={session.coachId}
                   startTopic={builderTopic}
                   onStartTopicUsed={() => setBuilderTopic(undefined)}
-                  onPublish={async (study) => { await handleStudyCreated(study); setOpenStudyId(study.id); showToast(`"${study.title}" is ready. Open Student PDF or the social card below.`); }}
+                  editStudy={editStudy}
+                  onEditUsed={() => setEditStudy(undefined)}
+                  onPublish={async (study, replacesId) => {
+                    if (replacesId !== undefined) await handleStudyUpdated({ ...study, id: replacesId });
+                    else await handleStudyCreated(study);
+                    setOpenStudyId(replacesId ?? study.id);
+                    showToast(`"${study.title}" is ${replacesId !== undefined ? "updated" : "ready. Open Student PDF or the social card below"}.`);
+                  }}
                   onToast={showToast}
                 />
               )}
@@ -714,7 +733,7 @@ export default function Home() {
             </div>
           )}
           {tab === "dashboard" && <LocationDashboard />}
-          {tab === "admin" && isManager(session?.role) && <AdminPanel session={session} />}
+          {tab === "admin" && isManager(session?.role) && <AdminPanel session={session} onPendingChange={setPendingSignups} />}
         </div>
       </div>
 
@@ -729,7 +748,8 @@ export default function Home() {
       {openStudy && (
         <StudyModal study={openStudy} userData={userData} onClose={() => setOpenStudyId(null)}
           onSaveNotes={handleSaveNotes} onSaveEntries={handleSaveEntries} onSaveAttend={handleSaveAttend}
-          onDeleteDraft={handleDeleteDraft} onDeleteStudy={handleDeleteStudy} onToast={showToast} />
+          onDeleteDraft={handleDeleteDraft} onDeleteStudy={handleDeleteStudy} onToast={showToast}
+          onEdit={canEdit(openStudy) ? (s) => { setEditStudy(s); setOpenStudyId(null); changeTab("create"); } : undefined} />
       )}
       {toast && <Toast message={toast} onDone={() => setToast(null)} />}
     </div>

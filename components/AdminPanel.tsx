@@ -6,9 +6,11 @@ import { assignableRoles, mayManage, ROLE_ADMIN } from "@/lib/roles";
 
 interface AdminPanelProps {
   session: CoachSession;
+  /** Told how many sign-ups are waiting, so the Admin item can show a badge. */
+  onPendingChange?: (count: number) => void;
 }
 
-export default function AdminPanel({ session }: AdminPanelProps) {
+export default function AdminPanel({ session, onPendingChange }: AdminPanelProps) {
   const [allCoaches, setCoaches] = useState<Coach[]>([]);
   // An Admin runs one location: they only see, and only get to change, the coaches there.
   const isLocationAdmin = session.role === ROLE_ADMIN;
@@ -37,6 +39,11 @@ export default function AdminPanel({ session }: AdminPanelProps) {
       setLoading(false);
     });
   }, []);
+
+  useEffect(() => {
+    onPendingChange?.(allCoaches.filter((c) => c.pending).length);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allCoaches]);
 
   function showToast(msg: string) {
     setToast(msg);

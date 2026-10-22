@@ -27,6 +27,8 @@ interface StudyModalProps {
   onDeleteDraft: (id: string | number) => void;
   onDeleteStudy: (id: string | number) => void;
   onToast: (msg: string) => void;
+  /** Present when this coach may edit the study (their own, written in the builder or by the AI). */
+  onEdit?: (study: Study) => void;
 }
 
 export default function StudyModal({
@@ -39,6 +41,7 @@ export default function StudyModal({
   onDeleteDraft,
   onDeleteStudy,
   onToast,
+  onEdit,
 }: StudyModalProps) {
   const sid = String(study.id);
   const [notes, setNotes] = useState(userData.notes[sid] || "");
@@ -316,6 +319,7 @@ h1{font-size:22px;text-align:center;margin-bottom:4px}.th{font-size:13px;text-al
                   onToast("Leader guide PDF downloaded!");
                 }}>📄 Leader PDF</button>
                 <button className="btn btn-outline" onClick={() => { generateStudentPDF(study); onToast("Student PDF downloaded!"); }}>📋 Student PDF</button>
+                {onEdit && <button className="btn btn-outline" onClick={() => onEdit(study)}>✏️ Edit</button>}
                 <button className="btn btn-outline" onClick={() => setShowQR(true)}>📲 QR Code</button>
                 <button className="btn btn-outline" onClick={doCopyFull}>📎 Copy</button>
                 <button className="btn btn-outline" onClick={() => socialRef.current?.scrollIntoView({ behavior: "smooth" })}>📱 Social</button>
