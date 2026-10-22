@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
   if (!auth.ok) return auth.response;
   const location = req.nextUrl.searchParams.get("location") || "";
   const studyId = req.nextUrl.searchParams.get("studyId") || "";
-  if (!LOCATIONS.some((l) => l.id === location) || !studyId) {
+  if (!LOCATIONS.some((l) => l.id === location) || !studyId || (auth.coach.role !== "Creator" && !(auth.coach.locationIds ?? [auth.coach.locationId]).includes(location))) {
     return NextResponse.json({ ok: false, error: "Bad request" }, { status: 400 });
   }
   try {

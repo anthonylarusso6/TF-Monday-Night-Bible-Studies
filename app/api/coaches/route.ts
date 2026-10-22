@@ -4,7 +4,8 @@ import {
   lockedFor, recordFailure, clearFailures, StoredCoach,
 } from "@/lib/auth";
 import { logActivity } from "@/lib/activity";
-import { MANAGER_ROLES, FULL_ROLES, ROLE_CREATOR, ROLE_ADMIN, ADMIN_ASSIGNABLE, mayManage, assignableRoles } from "@/lib/roles";
+import { cleanLocationIds } from "@/lib/locations";
+import { MANAGER_ROLES, FULL_ROLES, ROLE_CREATOR, ROLE_ADMIN, ADMIN_ASSIGNABLE, SIGNUP_ROLES, mayManage, assignableRoles } from "@/lib/roles";
 
 /**
  * Coach registry.
@@ -98,12 +99,13 @@ export async function POST(req: NextRequest) {
       const name = String(body.name || "").trim().slice(0, 60);
       const pin = String(body.pin || "");
       const role = String(body.role || "");
-      const locationId = String(body.locationId || "");
+      const locationIds = cleanLocationIds(body.locationIds ?? [body.locationId]);
+      const locationId = locationIds[0] || "";
       if (!name || !/^\d{4}$/.test(pin) || !role || !locationId) {
-        return NextResponse.json({ ok: false, error: "Name, role, location and a 4-digit PIN are required." }, { status: 400 });
+        return NextResponse.json({ ok: false, error: "Name, role, at least one location and a 4-digit PIN are required." }, { status: 400 });
       }
-      if (!ADMIN_ASSIGNABLE.includes(role)) {
-        return NextResponse.json({ ok: false, error: "Pick Assistant Coach, Volunteer or Social Media." }, { status: 403 });
+      if (!SIGNUP_ROLES.includes(role)) {
+        return NextResponse.json({ ok: false, error: "Pick Assistant Coach, Volunteer, Head Coach or Social Media." }, { status: 403 });
       }
       if (coaches.some((c) => c.name.toLowerCase() === name.toLowerCase())) {
         // Same words whoever holds the name, so this can't be used to find out who is registered.
@@ -113,9 +115,9 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: false, error: "Too many sign-ups are waiting. Ask your admin to approve them first." }, { status: 429 });
       }
       const id = `coach_${Date.now()}`;
-      const coach: StoredCoach = { id, name, pinHash: hashPin(id, pin), role, locationId, pending: true };
+      const coach: StoredCoach = { id, name, pinHash: hashPin(id, pin), role, locationId, locationIds, pending: true };
       await writeRegistry([...coaches, coach]);
-      await logActivity({ coachId: coach.id, name: coach.name, action: "signup", detail: `asked to join as ${role} (${locationId})` });
+      await logActivity({ coachId: coach.id, name: coach.name, action: "signup", detail: `asked to join as ${role} (${locationIds.join(" + ")})` });
       return NextResponse.json({ ok: true, pending: true });
     }
 
@@ -156,9 +158,10 @@ export async function POST(req: NextRequest) {
       const pin = String(body.pin || "");
       // The first account must be able to manage the rest, whatever was picked.
       const role = bootstrapping ? ROLE_CREATOR : String(body.role || "");
-      const locationId = String(body.locationId || "");
+      const locationIds = cleanLocationIds(body.locationIds ?? [body.locationId]);
+      const locationId = locationIds[0] || "";
       if (!name || !/^\d{4}$/.test(pin) || !role || !locationId) {
-        return NextResponse.json({ ok: false, error: "Name, role, location and a 4-digit PIN are required." }, { status: 400 });
+        return NextResponse.json({ ok: false, error: "Name, role, at least one location and a 4-digit PIN are required." }, { status: 400 });
       }
       if (coaches.some((c) => c.name.toLowerCase() === name.toLowerCase())) {
         return NextResponse.json({ ok: false, error: "A coach with that name already exists." }, { status: 409 });
@@ -170,7 +173,7 @@ export async function POST(req: NextRequest) {
 
       const newId = `coach_${Date.now()}`;
       // The Creator picked this PIN, so the coach chooses their own at first sign-in (unless this is the very first account).
-      const coach: StoredCoach = { id: newId, name, pinHash: hashPin(newId, pin), role, locationId, ...(bootstrapping ? {} : { mustChangePin: true }) };
+      const coach: StoredCoach = { id: newId, name, pinHash: hashPin(newId, pin), role, locationId, locationIds, ...(bootstrapping ? {} : { mustChangePin: true }) };
       await writeRegistry([...coaches, coach]);
       return NextResponse.json({
         ok: true,
@@ -196,7 +199,9 @@ export async function POST(req: NextRequest) {
       if (!existing) return NextResponse.json({ ok: false, error: "Coach not found." }, { status: 404 });
 
       const pin = body.pin ? String(body.pin) : "";
-      const nextLocation = body.locationId ? String(body.locationId) : existing.locationId;
+      const nextLocationIds = body.locationIds !== undefined ? cleanLocationIds(body.locationIds) : (existing.locationIds ?? [existing.locationId]);
+      if (!nextLocationIds.length) return NextResponse.json({ ok: false, error: "Pick at least one location." }, { status: 400 });
+      const nextLocation = nextLocationIds[0];
       if (!mayManage(auth.coach, existing)) return forbidden();
       if (pin && !/^\d{4}$/.test(pin)) {
         return NextResponse.json({ ok: false, error: "PIN must be 4 digits." }, { status: 400 });
@@ -229,6 +234,7 @@ export async function POST(req: NextRequest) {
         name: nextName,
         role: nextRole,
         locationId: nextLocation,
+        locationIds: nextLocationIds,
         ...(pin ? { pinHash: hashPin(c.id, pin), pin: undefined, mustChangePin: body.forceChange === true } : {}),
         ...(typeof body.suspended === "boolean" ? { suspended: body.suspended } : {}),
         ...(body.approve ? { pending: false } : {}),

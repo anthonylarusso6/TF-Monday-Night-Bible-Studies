@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
-import { ADMIN_ASSIGNABLE } from "@/lib/roles";
+import { SIGNUP_ROLES } from "@/lib/roles";
+import LocationPicker from "./LocationPicker";
 import {
   Coach, CoachSession, loadCoaches, addCoach, signUpCoach, verifyPin,
   setSession, ROLES, LOCATIONS,
@@ -28,9 +29,11 @@ export default function PinLogin({ onLogin, notice }: PinLoginProps) {
   // Add coach form
   const [newName, setNewName] = useState("");
   const [newRole, setNewRole] = useState("Head Coach");
-  // Sign-up never offers Creator, Head Coach or Admin: those are handed out by an admin, not picked on a login screen.
-  const signupRoles = ADMIN_ASSIGNABLE;
+  // Sign-up offers Assistant Coach, Volunteer, Head Coach or Social Media. Creator and Admin are handed out by the Creator.
+  const signupRoles = SIGNUP_ROLES;
   const [newLocation, setNewLocation] = useState(LOCATIONS[0].id);
+  // Signing up: one location or both.
+  const [newLocations, setNewLocations] = useState<string[]>([LOCATIONS[0].id]);
   const [newPin, setNewPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
   const [saving, setSaving] = useState(false);
@@ -77,6 +80,7 @@ export default function PinLogin({ onLogin, notice }: PinLoginProps) {
           name: coach.name,
           role: coach.role,
           locationId: coach.locationId,
+          locationIds: coach.locationIds,
           token,
           mustChangePin: coach.mustChangePin,
         };
@@ -119,7 +123,7 @@ export default function PinLogin({ onLogin, notice }: PinLoginProps) {
         setView("name");
         return;
       }
-      const session: CoachSession = { coachId: coach.id, name: coach.name, role: coach.role, locationId: coach.locationId, token };
+      const session: CoachSession = { coachId: coach.id, name: coach.name, role: coach.role, locationId: coach.locationId, locationIds: coach.locationIds, token };
       setSession(session);
       onLogin(session);
     } catch (e) {
@@ -135,7 +139,7 @@ export default function PinLogin({ onLogin, notice }: PinLoginProps) {
     if (newPin !== confirmPin) { setError("PINs don't match."); return; }
     setError(""); setSaving(true);
     try {
-      await signUpCoach({ name: newName.trim(), pin: newPin, role: signupRoles.includes(newRole) ? newRole : signupRoles[0], locationId: newLocation });
+      await signUpCoach({ name: newName.trim(), pin: newPin, role: signupRoles.includes(newRole) ? newRole : signupRoles[0], locationId: newLocations[0], locationIds: newLocations });
       setNewName(""); setNewPin(""); setConfirmPin("");
       setView("name");
       setError("Account created. An admin has to approve it, then you can sign in with your name and PIN.");
@@ -227,14 +231,11 @@ export default function PinLogin({ onLogin, notice }: PinLoginProps) {
                 An admin approves new accounts before they can sign in.
               </p>
               <input placeholder="First and last name" value={newName} onChange={e => setNewName(e.target.value)} style={inputStyle} />
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
-                <select value={signupRoles.includes(newRole) ? newRole : signupRoles[0]} onChange={e => setNewRole(e.target.value)} style={selectStyle}>
-                  {signupRoles.map(r => <option key={r}>{r}</option>)}
-                </select>
-                <select value={newLocation} onChange={e => setNewLocation(e.target.value)} style={selectStyle}>
-                  {LOCATIONS.map(l => <option key={l.id} value={l.id}>{l.name.replace("Triple F ", "")}</option>)}
-                </select>
-              </div>
+              <select value={signupRoles.includes(newRole) ? newRole : signupRoles[0]} onChange={e => setNewRole(e.target.value)} style={{ ...selectStyle, marginBottom: 12 }}>
+                {signupRoles.map(r => <option key={r}>{r}</option>)}
+              </select>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#567888", margin: "2px 0 6px", fontFamily: "Arial, sans-serif" }}>Where will you coach? Pick one, or both.</div>
+              <div style={{ marginBottom: 14 }}><LocationPicker light value={newLocations} onChange={setNewLocations} /></div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 18 }}>
                 <input placeholder="4-digit PIN" maxLength={4} value={newPin} onChange={e => setNewPin(e.target.value.replace(/\D/g, "").slice(0,4))} type="password" style={inputStyle} />
                 <input placeholder="Confirm PIN" maxLength={4} value={confirmPin} onChange={e => setConfirmPin(e.target.value.replace(/\D/g, "").slice(0,4))} type="password" style={inputStyle} />

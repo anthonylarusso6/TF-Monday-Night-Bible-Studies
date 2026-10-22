@@ -27,3 +27,10 @@ export const LOCATIONS: Location[] = [
 ];
 
 export const DEFAULT_LOCATION = LOCATIONS[0];
+
+/** Keep only real location ids, in order, without repeats. */
+export function cleanLocationIds(ids: unknown): string[] {
+  if (!Array.isArray(ids)) return [];
+  const real = new Set(LOCATIONS.map((l) => l.id));
+  return [...new Set(ids.map(String))].filter((id) => real.has(id));
+}

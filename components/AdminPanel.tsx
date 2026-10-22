@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { Coach, loadCoaches, updateCoach, addCoach, removeCoach, loadActivity, ActivityEntry, ROLES, LOCATIONS } from "@/lib/coaches";
 import { CoachSession } from "@/lib/coaches";
+import LocationPicker from "./LocationPicker";
 import { assignableRoles, mayManage, ROLE_ADMIN } from "@/lib/roles";
 
 interface AdminPanelProps {
@@ -14,7 +15,7 @@ export default function AdminPanel({ session, onPendingChange }: AdminPanelProps
   const [allCoaches, setCoaches] = useState<Coach[]>([]);
   // An Admin runs one location: they only see, and only get to change, the coaches there.
   const isLocationAdmin = session.role === ROLE_ADMIN;
-  const coaches = isLocationAdmin ? allCoaches.filter((c) => c.locationId === session.locationId) : allCoaches;
+  const coaches = isLocationAdmin ? allCoaches.filter((c) => (c.locationIds?.length ? c.locationIds : [c.locationId]).includes(session.locationId)) : allCoaches;
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<"list" | "add" | "edit">("list");
   const [editingCoach, setEditingCoach] = useState<Coach | null>(null);
@@ -24,7 +25,7 @@ export default function AdminPanel({ session, onPendingChange }: AdminPanelProps
   // Form fields
   const [name, setName] = useState("");
   const [role, setRole] = useState("Assistant Coach");
-  const [locationId, setLocationId] = useState(LOCATIONS[0].id);
+  const [locationIds, setLocationIds] = useState<string[]>([LOCATIONS[0].id]);
   const [forceChange, setForceChange] = useState(true);
   const [activity, setActivity] = useState<ActivityEntry[] | null>(null);
   const [activityError, setActivityError] = useState("");
@@ -54,14 +55,14 @@ export default function AdminPanel({ session, onPendingChange }: AdminPanelProps
   }
 
   function startAdd() {
-    setName(""); setRole("Assistant Coach"); setLocationId(isLocationAdmin ? session.locationId : LOCATIONS[0].id);
+    setName(""); setRole("Assistant Coach"); setLocationIds([isLocationAdmin ? session.locationId : LOCATIONS[0].id]);
     setPin(""); setConfirmPin(""); setError("");
     setView("add");
   }
 
   function startEdit(coach: Coach) {
     setEditingCoach(coach);
-    setName(coach.name); setRole(coach.role); setLocationId(coach.locationId); setForceChange(true);
+    setName(coach.name); setRole(coach.role); setLocationIds(coach.locationIds?.length ? coach.locationIds : [coach.locationId]); setForceChange(true);
     setPin(""); setConfirmPin(""); setError("");
     setView("edit");
   }
@@ -75,7 +76,7 @@ export default function AdminPanel({ session, onPendingChange }: AdminPanelProps
     }
     setError(""); setSaving(true);
     try {
-      const { coach: newCoach } = await addCoach({ name: name.trim(), pin, role, locationId });
+      const { coach: newCoach } = await addCoach({ name: name.trim(), pin, role, locationId: locationIds[0], locationIds });
       setCoaches(prev => [...prev, newCoach]);
       setView("list");
       showToast(`${newCoach.name} added!`);
@@ -95,7 +96,7 @@ export default function AdminPanel({ session, onPendingChange }: AdminPanelProps
       // The server re-reads the registry before writing, so a coach added from
       // another device since this panel loaded is not dropped.
       const updated = await updateCoach({
-        id: editingCoach.id, name: name.trim(), role, locationId,
+        id: editingCoach.id, name: name.trim(), role, locationId: locationIds[0], locationIds,
         ...(pin ? { pin, forceChange } : {}),
       });
       setCoaches(updated);
@@ -183,7 +184,7 @@ export default function AdminPanel({ session, onPendingChange }: AdminPanelProps
                 No coaches yet. Add the first one.
               </div>
             ) : coaches.map(coach => {
-              const loc = LOCATIONS.find(l => l.id === coach.locationId);
+              const locs = (coach.locationIds?.length ? coach.locationIds : [coach.locationId]).map(id => LOCATIONS.find(l => l.id === id)).filter((l): l is NonNullable<typeof l> => !!l);
               const isMe = coach.id === session.coachId;
               return (
                 <div key={coach.id} style={{ background: "var(--card)", border: `1.5px solid ${isMe ? "var(--accent)" : "var(--border)"}`, borderRadius: "var(--radius)", padding: "14px 16px", display: "flex", alignItems: "center", gap: 14 }}>
@@ -202,7 +203,7 @@ export default function AdminPanel({ session, onPendingChange }: AdminPanelProps
                     <div style={{ fontSize: 12, color: "var(--text2)", fontFamily: "Arial, sans-serif", marginTop: 2 }}>
                       {/* To everyone but the Creator, the Creator reads as a plain Admin. */}
                       {coach.role === "Creator" && session.role !== "Creator" ? "Admin" : coach.role}
-                      {loc && <> · <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><span style={{ width: 6, height: 6, borderRadius: "50%", background: loc.color, display: "inline-block" }} />{loc.name.replace("Triple F ", "")}</span></>}
+                      {locs.map((loc) => <span key={loc.id}> · <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><span style={{ width: 6, height: 6, borderRadius: "50%", background: loc.color, display: "inline-block" }} />{loc.name.replace("Triple F ", "")}</span></span>)}
                     </div>
                   </div>
                   {/* Actions */}
@@ -257,7 +258,7 @@ export default function AdminPanel({ session, onPendingChange }: AdminPanelProps
           <div style={{ marginTop: 24, background: "var(--card)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 18px" }}>
             <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1.5, color: "var(--text2)", marginBottom: 12 }}>By Location</div>
             {LOCATIONS.map(loc => {
-              const count = coaches.filter(c => c.locationId === loc.id).length;
+              const count = coaches.filter(c => (c.locationIds?.length ? c.locationIds : [c.locationId]).includes(loc.id)).length;
               return (
                 <div key={loc.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -291,19 +292,18 @@ export default function AdminPanel({ session, onPendingChange }: AdminPanelProps
               <input className="form-input" value={name} onChange={e => setName(e.target.value)} placeholder="Coach name" autoFocus />
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 18 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12, marginBottom: 18 }}>
               <div>
                 <label className="form-label">Role</label>
                 <select className="form-select" value={role} onChange={e => setRole(e.target.value)}>
                   {roleChoices.map(r => <option key={r}>{r}</option>)}
                 </select>
               </div>
-              <div>
-                <label className="form-label">Location</label>
-                <select className="form-select" value={locationId} disabled={isLocationAdmin} onChange={e => setLocationId(e.target.value)}>
-                  {LOCATIONS.map(l => <option key={l.id} value={l.id}>{l.name.replace("Triple F ", "")}</option>)}
-                </select>
-              </div>
+            </div>
+
+            <div style={{ marginBottom: 14 }}>
+              <label className="form-label">Location (one, or both)</label>
+              <LocationPicker value={locationIds} onChange={setLocationIds} disabled={isLocationAdmin} />
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 6 }}>

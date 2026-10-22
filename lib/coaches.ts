@@ -16,6 +16,7 @@ export interface Coach {
   name: string;
   role: string;
   locationId: string;
+  locationIds?: string[];
   /** Signed up from the login screen, waiting for an admin to approve. */
   pending?: boolean;
   suspended?: boolean;
@@ -100,6 +101,8 @@ export interface NewCoach {
   name: string;
   role: string;
   locationId: string;
+  /** One or both locations; the first is the main one. */
+  locationIds?: string[];
   /** Sent once on creation and never returned to the browser again. */
   pin: string;
 }
@@ -114,7 +117,7 @@ export async function addCoach(coach: NewCoach): Promise<{ coach: Coach; token?:
 }
 
 export async function updateCoach(update: {
-  id: string; name?: string; role?: string; locationId?: string; pin?: string; approve?: boolean;
+  id: string; name?: string; role?: string; locationId?: string; locationIds?: string[]; pin?: string; approve?: boolean;
   suspended?: boolean; /** With a new PIN: they must pick their own at next sign-in. */ forceChange?: boolean;
 }): Promise<Coach[]> {
   const { coaches, token } = await post({ action: "update", ...update });

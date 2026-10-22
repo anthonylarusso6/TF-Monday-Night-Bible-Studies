@@ -1,13 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { LOCATIONS } from "@/lib/locations";
-import { requireCoach } from "@/lib/auth";
+import { requireCoach, coachLocations } from "@/lib/auth";
 import type { Study } from "@/lib/types";
 import { recordVersions } from "@/lib/versions";
 import { logActivity } from "@/lib/activity";
 import { readLocationRow, readStudiesRow, mergeLocationWrite, mergeStudiesWrite, previewsFor, type Row } from "@/lib/dataAccess";
 
 const isStudiesId = (id: string) => id.endsWith("__studies");
+
+/** A coach may only touch the locations they work at; the Creator can open them all. */
+function locationOf(id: string): string {
+  return id.replace(/__studies$/, "");
+}
+function allowedHere(coach: { role: string; locationId: string; locationIds?: string[] }, id: string): boolean {
+  return coachLocations(coach, LOCATIONS.map((l) => l.id)).includes(locationOf(id));
+}
 
 /** The ids of the studies this coach made at this location: the only study-keyed notes, likes and attendance that are theirs. */
 async function ownStudyIds(locationId: string, actor: { id: string; role: string }): Promise<Set<string>> {
@@ -46,6 +54,9 @@ export async function GET(req: NextRequest) {
   if (!validId(id)) {
     return NextResponse.json({ ok: false, error: "Unknown id" }, { status: 400 });
   }
+  if (!allowedHere(auth.coach, id)) {
+    return NextResponse.json({ ok: false, error: "You don't work at that location." }, { status: 403 });
+  }
   try {
     const { data, error } = await supabaseServer
       .from("user_data").select("*").eq("id", id).single();
@@ -82,6 +93,9 @@ export async function POST(req: NextRequest) {
   const id = String(body.id || "");
   if (!validId(id)) {
     return NextResponse.json({ ok: false, error: "Unknown id" }, { status: 400 });
+  }
+  if (!allowedHere(auth.coach, id)) {
+    return NextResponse.json({ ok: false, error: "You don't work at that location." }, { status: 403 });
   }
 
   try {

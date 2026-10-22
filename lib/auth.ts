@@ -33,6 +33,8 @@ export interface StoredCoach {
   pinHash?: string;
   role: string;
   locationId: string;
+  /** Every location this coach works at (one or both). The first is `locationId`. Missing means just `locationId`. */
+  locationIds?: string[];
   /** Created from the login screen and not yet approved by an admin: cannot sign in or see anything. */
   pending?: boolean;
   /** Locked out by the Creator: cannot sign in or use anything, but nothing they made is lost. */
@@ -42,6 +44,12 @@ export interface StoredCoach {
 }
 
 export const HEAD_COACH = "Head Coach";
+
+/** The locations this coach may open. The Creator can open them all. */
+export function coachLocations(c: { role: string; locationId: string; locationIds?: string[] }, all: string[]): string[] {
+  if (c.role === "Creator") return all;
+  return c.locationIds && c.locationIds.length ? c.locationIds : [c.locationId];
+}
 
 // ── Registry ─────────────────────────────────────────────────────────────────
 

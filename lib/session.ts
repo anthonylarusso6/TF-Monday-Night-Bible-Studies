@@ -11,6 +11,8 @@ export interface CoachSession {
   name: string;
   role: string;
   locationId: string;
+  /** Every location this coach works at; the first is `locationId`. */
+  locationIds?: string[];
   token?: string;
   /** The Creator set their PIN: they must choose their own before doing anything else. */
   mustChangePin?: boolean;

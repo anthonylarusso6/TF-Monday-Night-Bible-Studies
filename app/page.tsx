@@ -109,8 +109,8 @@ export default function Home() {
       // My own record: a role, AI switch or PIN flag the Creator changed applies now, not at the next sign-in.
       loadMe().then((me) => {
         if (!me) return;
-        if (me.role === coachSession.role && me.name === coachSession.name && !!me.mustChangePin === !!coachSession.mustChangePin) return;
-        const next: CoachSession = { ...coachSession, name: me.name, role: me.role, mustChangePin: me.mustChangePin };
+        if (me.role === coachSession.role && me.name === coachSession.name && !!me.mustChangePin === !!coachSession.mustChangePin && (me.locationIds ?? []).join() === (coachSession.locationIds ?? []).join()) return;
+        const next: CoachSession = { ...coachSession, name: me.name, role: me.role, mustChangePin: me.mustChangePin, locationId: me.locationId, locationIds: me.locationIds };
         saveSession(next);
         setSession(next);
       });
@@ -133,7 +133,10 @@ export default function Home() {
     // reasonably differ. Everything else is shared via Supabase.
     setDark(localStorage.getItem("tf_dark") === "true");
     // If coach has a location, use it; otherwise fall back to saved
-    const savedLocationId = coachSession?.locationId || localStorage.getItem("tf_location") || LOCATIONS[0].id;
+    // A coach opens on a location they work at: the last one they used if it is still theirs, else their main one.
+    const mine = coachSession ? (coachSession.role === "Creator" ? LOCATIONS.map((l) => l.id) : coachSession.locationIds?.length ? coachSession.locationIds : [coachSession.locationId]) : [];
+    const lastUsed = localStorage.getItem("tf_location");
+    const savedLocationId = (lastUsed && mine.includes(lastUsed) ? lastUsed : coachSession?.locationId) || lastUsed || LOCATIONS[0].id;
     setLocation(LOCATIONS.find(l => l.id === savedLocationId) || LOCATIONS[0]);
 
     if (!coachSession) return;
@@ -391,7 +394,10 @@ export default function Home() {
 
   const permitted = allowedTabs(session?.role);
   const aiOk = canUseAI(session?.role);
-  const canOpen = (t: string) => !permitted || permitted.includes(t);
+  // The locations this coach works at (the Creator: all). One means no picker; two means they can switch.
+  const myLocationIds = session?.role === "Creator" ? LOCATIONS.map((l) => l.id) : session?.locationIds?.length ? session.locationIds : session ? [session.locationId] : [];
+  const myLocations = LOCATIONS.filter((l) => myLocationIds.includes(l.id));
+  const canOpen = (t: string) => (!permitted || permitted.includes(t)) && (t !== "dashboard" || isCreator);
   const socialOnly = isSocialMediaRole(session?.role);
   const visibleNav = NAV.filter((n) => canOpen(n.id) && (n.id !== "others" || !isCreator));
 
@@ -421,18 +427,18 @@ export default function Home() {
       {/* Location switcher */}
       <div style={{ padding: "6px 12px 4px" }}>
         <button
-          onClick={() => setLocationPickerOpen(o => !o)}
+          onClick={() => myLocations.length > 1 && setLocationPickerOpen(o => !o)}
           style={{ width: "100%", background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "8px 12px", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", color: "white", fontSize: 12, fontWeight: 700, WebkitTapHighlightColor: "transparent" }}
         >
           <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ width: 8, height: 8, borderRadius: "50%", background: location.color, flexShrink: 0 }} />
             {location.name}
           </span>
-          <span style={{ opacity: 0.5, fontSize: 10 }}>{locationPickerOpen ? "▲" : "▼"}</span>
+          {myLocations.length > 1 && <span style={{ opacity: 0.5, fontSize: 10 }}>{locationPickerOpen ? "▲" : "▼"}</span>}
         </button>
-        {locationPickerOpen && (
+        {locationPickerOpen && myLocations.length > 1 && (
           <div style={{ background: "rgba(0,0,0,0.3)", borderRadius: 8, overflow: "hidden", marginTop: 4 }}>
-            {LOCATIONS.map(loc => (
+            {myLocations.map(loc => (
               <button
                 key={loc.id}
                 onClick={() => switchLocation(loc)}
