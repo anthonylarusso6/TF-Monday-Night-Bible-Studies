@@ -12,6 +12,7 @@ import StudyGrid from "@/components/StudyGrid";
 import StudyModal from "@/components/StudyModal";
 import TopicIdeas from "@/components/TopicIdeas";
 import CreateStudy from "@/components/CreateStudy";
+import WriteStudy from "@/components/WriteStudy";
 import AttendanceChart from "@/components/AttendanceChart";
 import CoachGrow from "@/components/CoachGrow";
 import PrayerRequests from "@/components/PrayerRequests";
@@ -168,8 +169,6 @@ export default function Home() {
   useEffect(() => {
     const allowed = allowedTabs(session?.role);
     if (allowed && !allowed.includes(tab)) setTab(defaultTab(session?.role) as Tab);
-    // Creating a study is the AI screen: anyone without AI never lands on it, not even from a saved tab.
-    if (session && tab === "create" && !canUseAI(session.role)) setTab("all");
   }, [session?.role, tab]);
 
   // Close sidebar on ESC
@@ -361,7 +360,7 @@ export default function Home() {
 
   const permitted = allowedTabs(session?.role);
   const aiOk = canUseAI(session?.role);
-  const canOpen = (t: string) => (!permitted || permitted.includes(t)) && (aiOk || t !== "create");
+  const canOpen = (t: string) => !permitted || permitted.includes(t);
   const socialOnly = isSocialMediaRole(session?.role);
   const visibleNav = NAV.filter((n) => canOpen(n.id));
 
@@ -636,11 +635,20 @@ export default function Home() {
             />
           )}
           {tab === "create" && (
-            <CreateStudy
-              prefilledTopic={prefilledTopic}
-              onStudyCreated={(study) => { setPrefilledTopic(undefined); handleStudyCreated(study); }}
-              onToast={showToast}
-            />
+            <>
+              {aiOk && (
+                <CreateStudy
+                  prefilledTopic={prefilledTopic}
+                  onStudyCreated={(study) => { setPrefilledTopic(undefined); handleStudyCreated(study); }}
+                  onToast={showToast}
+                />
+              )}
+              <WriteStudy
+                createdBy={session?.coachId}
+                onStudyCreated={async (study) => { await handleStudyCreated(study); setOpenStudyId(study.id); }}
+                onToast={showToast}
+              />
+            </>
           )}
           {tab === "grow" && (
             <CoachGrow
@@ -697,7 +705,7 @@ export default function Home() {
 
       {/* FAB — mobile only. Hidden where it would sit on top of the screen's
           own main action, and on Create itself where it does nothing. */}
-      {aiOk && tab !== "create" && tab !== "social" && (
+      {tab !== "create" && tab !== "social" && (
         <button className="fab" onClick={() => changeTab("create")}>
           ✏️ Create
         </button>
