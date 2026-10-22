@@ -55,6 +55,8 @@ export default function Home() {
   const [session, setSession] = useState<CoachSession | null>(null);
   // coach id → name, to say who wrote each study on the Other Coaches' Studies screen.
   const [coachNames, setCoachNames] = useState<Record<string, string>>({});
+  // Studies from before owners were recorded are the Creator's own (the original library and anything made earlier).
+  const [creatorName, setCreatorName] = useState("");
   const [loginNotice, setLoginNotice] = useState<string | null>(null);
   const [sessionLoaded, setSessionLoaded] = useState(false);
   const [tab, setTab] = useState<Tab>("all");
@@ -101,6 +103,7 @@ export default function Home() {
       loadCoaches().then(({ ok, coaches }) => {
         if (!ok) return;
         setCoachNames(Object.fromEntries(coaches.map((c) => [c.id, c.name])));
+        setCreatorName(coaches.find((c) => c.role === "Creator" || c.role === "Lead Coach")?.name ?? "");
         const current = coaches.find((c) => c.id === coachSession.coachId);
         if (!current) return;
         if (current.role === coachSession.role && current.name === coachSession.name) return;
@@ -285,7 +288,7 @@ export default function Home() {
   // Creator sees every study. Everyone else sees the rest as previews under "Other Coaches' Studies".
   const allStudies: Study[] = isCreator ? everyStudy : everyStudy.filter((s) => s.createdBy === session?.coachId);
   const othersStudies: Study[] = isCreator ? [] : everyStudy.filter((s) => !s.draft && s.createdBy !== session?.coachId);
-  const authorOf = (s: Study) => (s.createdBy ? coachNames[s.createdBy] || "Another coach" : "Triple F library");
+  const authorOf = (s: Study) => (s.createdBy ? coachNames[s.createdBy] || "Another coach" : creatorName || "Anthony");
 
   const openStudy = openStudyId != null
     ? allStudies.find((s) => String(s.id) === String(openStudyId)) ?? null
