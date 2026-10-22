@@ -78,7 +78,6 @@ export default function PinLogin({ onLogin, notice }: PinLoginProps) {
           role: coach.role,
           locationId: coach.locationId,
           token,
-          ai: coach.ai,
           mustChangePin: coach.mustChangePin,
         };
         setSession(session);

@@ -12,8 +12,6 @@ export interface CoachSession {
   role: string;
   locationId: string;
   token?: string;
-  /** Allowed to use the AI without being the Creator (the Creator's switch in Admin). */
-  ai?: boolean;
   /** The Creator set their PIN: they must choose their own before doing anything else. */
   mustChangePin?: boolean;
 }

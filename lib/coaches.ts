@@ -19,7 +19,6 @@ export interface Coach {
   /** Signed up from the login screen, waiting for an admin to approve. */
   pending?: boolean;
   suspended?: boolean;
-  ai?: boolean;
   mustChangePin?: boolean;
 }
 
@@ -116,7 +115,7 @@ export async function addCoach(coach: NewCoach): Promise<{ coach: Coach; token?:
 
 export async function updateCoach(update: {
   id: string; name?: string; role?: string; locationId?: string; pin?: string; approve?: boolean;
-  ai?: boolean; suspended?: boolean; /** With a new PIN: they must pick their own at next sign-in. */ forceChange?: boolean;
+  suspended?: boolean; /** With a new PIN: they must pick their own at next sign-in. */ forceChange?: boolean;
 }): Promise<Coach[]> {
   const { coaches, token } = await post({ action: "update", ...update });
   // Changing your own PIN invalidates your old sign-in; the server sends a

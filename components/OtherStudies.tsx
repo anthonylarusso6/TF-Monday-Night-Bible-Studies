@@ -10,6 +10,8 @@ interface OtherStudiesProps {
   onWrite: () => void;
   /** Shown above the list, e.g. on the Series tab when a coach has no studies of their own yet. */
   intro?: string;
+  /** Listed first: the Creator's name. */
+  firstAuthor?: string;
 }
 
 /**
@@ -17,10 +19,16 @@ interface OtherStudiesProps {
  * breakdown, the questions or the printable handout. Seeing what others talked about is meant to get a coach
  * writing their own study, not to let them lead someone else's.
  */
-export default function OtherStudies({ studies, authorOf, onWrite, intro }: OtherStudiesProps) {
+export default function OtherStudies({ studies, authorOf, onWrite, intro, firstAuthor }: OtherStudiesProps) {
   const [open, setOpen] = useState<string | null>(null);
   const [series, setSeries] = useState<string>("");
   const shown = series ? studies.filter((s) => s.series === series) : studies;
+  // By coach: the Creator's name first, then the others alphabetically, each with all their studies.
+  const groups = (() => {
+    const m = new Map<string, Study[]>();
+    for (const s of shown) m.set(authorOf(s), [...(m.get(authorOf(s)) ?? []), s]);
+    return [...m.entries()].sort(([a], [b]) => (a === firstAuthor ? -1 : b === firstAuthor ? 1 : a.localeCompare(b)));
+  })();
 
   return (
     <div>
@@ -51,8 +59,16 @@ export default function OtherStudies({ studies, authorOf, onWrite, intro }: Othe
         </div>
       )}
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {shown.map((s) => {
+      {groups.map(([author, list]) => (
+        <div key={author} style={{ marginBottom: 22 }}>
+          {/* The coach's name, then all of their studies. */}
+          <div style={{ display: "flex", alignItems: "baseline", gap: 8, margin: "0 2px 10px", paddingBottom: 6, borderBottom: "1px solid var(--border)" }}>
+            <span style={{ fontSize: 16, fontWeight: 800, color: "var(--text)" }}>{author}</span>
+            <span style={{ fontSize: 12, color: "var(--text2)", fontFamily: "Arial, sans-serif" }}>{list.length} stud{list.length === 1 ? "y" : "ies"}</span>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {list.map((s) => {
+
           const id = String(s.id);
           const isOpen = open === id;
           return (
@@ -64,7 +80,7 @@ export default function OtherStudies({ studies, authorOf, onWrite, intro }: Othe
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text)" }}>{s.title}</div>
                   <div style={{ fontSize: 12, color: "var(--text2)", fontFamily: "Arial, sans-serif", marginTop: 2 }}>
-                    {authorOf(s)} · {s.date}{s.series ? ` · ${s.series}` : ""}
+                    {s.date}{s.series ? ` · ${s.series}` : ""}
                   </div>
                 </div>
                 <span style={{ fontSize: 18, color: "var(--text2)", transform: isOpen ? "rotate(90deg)" : "none", transition: "transform 0.2s" }}>›</span>
@@ -97,8 +113,10 @@ export default function OtherStudies({ studies, authorOf, onWrite, intro }: Othe
               )}
             </div>
           );
-        })}
-      </div>
+            })}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

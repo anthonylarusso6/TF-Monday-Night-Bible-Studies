@@ -25,7 +25,6 @@ export default function AdminPanel({ session, onPendingChange }: AdminPanelProps
   const [name, setName] = useState("");
   const [role, setRole] = useState("Assistant Coach");
   const [locationId, setLocationId] = useState(LOCATIONS[0].id);
-  const [ai, setAi] = useState(false);
   const [forceChange, setForceChange] = useState(true);
   const [activity, setActivity] = useState<ActivityEntry[] | null>(null);
   const [activityError, setActivityError] = useState("");
@@ -62,7 +61,7 @@ export default function AdminPanel({ session, onPendingChange }: AdminPanelProps
 
   function startEdit(coach: Coach) {
     setEditingCoach(coach);
-    setName(coach.name); setRole(coach.role); setLocationId(coach.locationId); setAi(!!coach.ai); setForceChange(true);
+    setName(coach.name); setRole(coach.role); setLocationId(coach.locationId); setForceChange(true);
     setPin(""); setConfirmPin(""); setError("");
     setView("edit");
   }
@@ -96,7 +95,7 @@ export default function AdminPanel({ session, onPendingChange }: AdminPanelProps
       // The server re-reads the registry before writing, so a coach added from
       // another device since this panel loaded is not dropped.
       const updated = await updateCoach({
-        id: editingCoach.id, name: name.trim(), role, locationId, ai,
+        id: editingCoach.id, name: name.trim(), role, locationId,
         ...(pin ? { pin, forceChange } : {}),
       });
       setCoaches(updated);
@@ -198,7 +197,6 @@ export default function AdminPanel({ session, onPendingChange }: AdminPanelProps
                       <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text)" }}>{coach.name}</span>
                       {isMe && <span style={{ fontSize: 10, fontWeight: 700, background: "rgba(26,138,181,0.12)", color: "var(--accent)", padding: "2px 8px", borderRadius: 20 }}>You</span>}
                       {coach.suspended && <span style={{ fontSize: 10, fontWeight: 700, background: "#fef2f2", color: "#991b1b", padding: "2px 8px", borderRadius: 20 }}>Suspended</span>}
-                      {coach.ai && coach.role !== "Creator" && <span style={{ fontSize: 10, fontWeight: 700, background: "rgba(26,138,181,0.12)", color: "var(--accent)", padding: "2px 8px", borderRadius: 20 }}>AI on</span>}
                       {coach.pending && <span style={{ fontSize: 10, fontWeight: 700, background: "#fdf6e7", color: "#92652a", padding: "2px 8px", borderRadius: 20 }}>Waiting for approval</span>}
                     </div>
                     <div style={{ fontSize: 12, color: "var(--text2)", fontFamily: "Arial, sans-serif", marginTop: 2 }}>
@@ -322,12 +320,6 @@ export default function AdminPanel({ session, onPendingChange }: AdminPanelProps
               <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13, fontFamily: "Arial, sans-serif", margin: "8px 0 4px" }}>
                 <input type="checkbox" checked={forceChange} onChange={e => setForceChange(e.target.checked)} />
                 They choose their own PIN at the next sign-in
-              </label>
-            )}
-            {view === "edit" && editingCoach?.role !== "Creator" && (
-              <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13, fontFamily: "Arial, sans-serif", margin: "10px 0 4px" }}>
-                <input type="checkbox" checked={ai} onChange={e => setAi(e.target.checked)} />
-                Can use the AI (generate a study, import, topic ideas, prep guide)
               </label>
             )}
 

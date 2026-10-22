@@ -207,7 +207,7 @@ export default function CoachGrow({ latestStudy, allStudies, userData, attendanc
 
       {/* Section nav */}
       <div style={{ display: "flex", gap: 6, marginBottom: 20, flexWrap: "wrap" }}>
-        {SECTIONS.map(s => (
+        {SECTIONS.filter(s => s.id !== "prep" || canUseAI).map(s => (
           <button key={s.id} onClick={() => setSection(s.id)} style={{ padding: "11px 15px", minHeight: 44, borderRadius: 22, border: `1.5px solid ${section === s.id ? "var(--accent)" : "var(--border)"}`, background: section === s.id ? "rgba(26,138,181,0.1)" : "var(--card)", color: section === s.id ? "var(--accent)" : "var(--text2)", fontSize: 12.5, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 5, WebkitTapHighlightColor: "transparent" }}>
             {s.icon} {s.label}
           </button>

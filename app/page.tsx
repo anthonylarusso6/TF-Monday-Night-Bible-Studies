@@ -109,8 +109,8 @@ export default function Home() {
       // My own record: a role, AI switch or PIN flag the Creator changed applies now, not at the next sign-in.
       loadMe().then((me) => {
         if (!me) return;
-        if (me.role === coachSession.role && me.name === coachSession.name && !!me.ai === !!coachSession.ai && !!me.mustChangePin === !!coachSession.mustChangePin) return;
-        const next: CoachSession = { ...coachSession, name: me.name, role: me.role, ai: me.ai, mustChangePin: me.mustChangePin };
+        if (me.role === coachSession.role && me.name === coachSession.name && !!me.mustChangePin === !!coachSession.mustChangePin) return;
+        const next: CoachSession = { ...coachSession, name: me.name, role: me.role, mustChangePin: me.mustChangePin };
         saveSession(next);
         setSession(next);
       });
@@ -390,7 +390,7 @@ export default function Home() {
   }
 
   const permitted = allowedTabs(session?.role);
-  const aiOk = canUseAI(session?.role, session?.ai);
+  const aiOk = canUseAI(session?.role);
   const canOpen = (t: string) => !permitted || permitted.includes(t);
   const socialOnly = isSocialMediaRole(session?.role);
   const visibleNav = NAV.filter((n) => canOpen(n.id) && (n.id !== "others" || !isCreator));
@@ -654,15 +654,21 @@ export default function Home() {
                   </div>
                 )}
                 {tab === "series" && !isCreator && allStudies.filter((s) => !s.draft).length === 0 ? (
-                  <OtherStudies studies={othersStudies} authorOf={authorOf} onWrite={() => changeTab("create")}
-                    intro="You have not written a study yet, so here is what other coaches have covered in each series." />
+                  <OtherStudies studies={othersStudies} authorOf={authorOf} firstAuthor={creatorName} onWrite={() => changeTab("create")}
+                    intro="You have not written a study yet. Here is every coach's work, by name." />
                 ) : (
                 <StudyGrid studies={gridStudies} userData={userData} tab={tab as "all"|"liked"|"drafts"|"series"} search={search} onOpen={setOpenStudyId} onToggleLike={toggleLike} />
+                )}
+                {tab === "series" && !isCreator && allStudies.filter((s) => !s.draft).length > 0 && (
+                  <div style={{ marginTop: 28 }}>
+                    <OtherStudies studies={othersStudies} authorOf={authorOf} firstAuthor={creatorName} onWrite={() => changeTab("create")}
+                      intro="Other coaches, by name" />
+                  </div>
                 )}
               </>
             );
           })()}
-          {tab === "others" && <OtherStudies studies={othersStudies} authorOf={authorOf} onWrite={() => changeTab("create")} />}
+          {tab === "others" && <OtherStudies studies={othersStudies} authorOf={authorOf} firstAuthor={creatorName} onWrite={() => changeTab("create")} />}
           {tab === "topics" && (
             <TopicIdeas
               canUseAI={aiOk}

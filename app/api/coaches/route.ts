@@ -35,8 +35,8 @@ export async function GET(req: NextRequest) {
       ? coaches
       : coaches
           .filter((c) => !c.pending && !c.suspended)
-          // Only the name, role and place: the AI switch and PIN flags are the Creator's business.
-          .map((c) => ({ ...c, ai: undefined, mustChangePin: undefined, role: c.role === ROLE_CREATOR ? "Lead Coach" : c.role }));
+          // Only the name, role and place: the PIN flags are the Creator's business.
+          .map((c) => ({ ...c, mustChangePin: undefined, role: c.role === ROLE_CREATOR ? "Lead Coach" : c.role }));
     return NextResponse.json({ ok: true, coaches: visible.map(publicCoach), me });
   } catch (e) {
     return unavailable(e);
@@ -230,7 +230,6 @@ export async function POST(req: NextRequest) {
         role: nextRole,
         locationId: nextLocation,
         ...(pin ? { pinHash: hashPin(c.id, pin), pin: undefined, mustChangePin: body.forceChange === true } : {}),
-        ...(typeof body.ai === "boolean" ? { ai: body.ai } : {}),
         ...(typeof body.suspended === "boolean" ? { suspended: body.suspended } : {}),
         ...(body.approve ? { pending: false } : {}),
       } : c);
@@ -239,7 +238,6 @@ export async function POST(req: NextRequest) {
         const what: string[] = [];
         if (body.approve) what.push("approved");
         if (typeof body.suspended === "boolean") what.push(body.suspended ? "suspended" : "restored");
-        if (typeof body.ai === "boolean") what.push(body.ai ? "AI switched on" : "AI switched off");
         if (pin) what.push("PIN changed");
         if (body.role) what.push(`role ${nextRole}`);
         await logActivity({ coachId: auth.coach.id, name: auth.coach.name, action: "admin", detail: `${existing.name}: ${what.join(", ") || "edited"}` });
