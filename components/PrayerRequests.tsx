@@ -12,18 +12,32 @@ interface PrayerRequest {
 
 interface PrayerRequestsProps {
   userData: UserData;
+  /** Where this coach's own requests are kept: private to them (and readable by the Creator). */
+  storageKey: string;
+  isCreator?: boolean;
+  coachNames?: Record<string, string>;
   onSave: (requests: PrayerRequest[]) => void;
 }
 
-function loadRequests(userData: UserData): PrayerRequest[] {
-  try {
-    const raw = (userData.notes as Record<string, string>)._prayers;
-    return raw ? JSON.parse(raw) : [];
-  } catch { return []; }
+function parseList(raw: string | undefined): PrayerRequest[] {
+  try { return raw ? JSON.parse(raw) : []; } catch { return []; }
 }
 
-export default function PrayerRequests({ userData, onSave }: PrayerRequestsProps) {
-  const [requests, setRequests] = useState<PrayerRequest[]>(loadRequests(userData));
+/** Mine: my own key, or (the Creator only) the old shared list until the first save moves it into my own. */
+function loadRequests(userData: UserData, storageKey: string, isCreator?: boolean): PrayerRequest[] {
+  const n = userData.notes as Record<string, string>;
+  return parseList(n[storageKey] ?? (isCreator ? n._prayers : undefined));
+}
+
+export default function PrayerRequests({ userData, storageKey, isCreator, coachNames = {}, onSave }: PrayerRequestsProps) {
+  const [requests, setRequests] = useState<PrayerRequest[]>(loadRequests(userData, storageKey, isCreator));
+  // The Creator also reads every other coach's requests (the server sends them only to him).
+  const others = isCreator
+    ? Object.entries(userData.notes as Record<string, string>)
+        .filter(([k]) => k.startsWith("_prayers_") && k !== storageKey)
+        .map(([k, v]) => ({ who: coachNames[k.slice("_prayers_".length)] || "Another coach", list: parseList(v) }))
+        .filter((o) => o.list.length)
+    : [];
   const [name, setName] = useState("");
   const [request, setRequest] = useState("");
   const [filter, setFilter] = useState<"all" | "praying" | "answered">("praying");
@@ -65,7 +79,7 @@ export default function PrayerRequests({ userData, onSave }: PrayerRequestsProps
       <div style={{ marginBottom: 20 }}>
         <h3 style={{ fontSize: 18, fontWeight: 800, marginBottom: 4 }}>Prayer Requests</h3>
         <p style={{ fontSize: 13, color: "var(--text2)", fontFamily: "Arial, sans-serif", lineHeight: 1.6 }}>
-          Track requests from your students. Nothing gets forgotten.
+          Track requests from your students. Nothing gets forgotten. Only you{isCreator ? "" : " and the Creator"} can see these.
         </p>
       </div>
 
@@ -123,6 +137,23 @@ export default function PrayerRequests({ userData, onSave }: PrayerRequestsProps
                   <button onClick={() => remove(req.id)} style={{ padding: "5px 8px", background: "none", color: "var(--text2)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 11, cursor: "pointer" }}>✕</button>
                 </div>
               </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {others.length > 0 && (
+        <div style={{ marginTop: 28 }}>
+          <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1.5, color: "var(--text2)", marginBottom: 10 }}>From other coaches (read only)</div>
+          {others.map((o) => (
+            <div key={o.who} style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>{o.who}</div>
+              {o.list.map((r) => (
+                <div key={r.id} style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "10px 14px", marginBottom: 6, fontFamily: "Georgia, serif", fontSize: 14, lineHeight: 1.5 }}>
+                  {r.name && <div style={{ fontSize: 12, fontWeight: 700, color: "var(--accent)" }}>{r.name}</div>}
+                  {r.request}
+                  <div style={{ fontSize: 11, color: "var(--text2)", marginTop: 4, fontFamily: "Arial, sans-serif" }}>{r.date} · {r.status === "answered" ? "Answered" : "Praying"}</div>
+                </div>
+              ))}
             </div>
           ))}
         </div>

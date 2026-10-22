@@ -2,9 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { LOCATIONS } from "@/lib/locations";
 import { requireCoach } from "@/lib/auth";
+import type { Study } from "@/lib/types";
+import { recordVersions } from "@/lib/versions";
+import { logActivity } from "@/lib/activity";
 import { readLocationRow, readStudiesRow, mergeLocationWrite, mergeStudiesWrite, previewsFor, type Row } from "@/lib/dataAccess";
 
 const isStudiesId = (id: string) => id.endsWith("__studies");
+
+/** The ids of the studies this coach made at this location: the only study-keyed notes, likes and attendance that are theirs. */
+async function ownStudyIds(locationId: string, actor: { id: string; role: string }): Promise<Set<string>> {
+  if (actor.role === "Creator") return new Set();
+  const { data } = await supabaseServer.from("user_data").select("drafts").eq("id", `${locationId}__studies`).single();
+  const list = ((data?.drafts ?? []) as { id: string | number; createdBy?: string }[]);
+  return new Set(list.filter((s) => s.createdBy === actor.id).map((s) => String(s.id)));
+}
 
 /**
  * Reads and writes a location's rows through the server, so the browser never
@@ -48,7 +59,10 @@ export async function GET(req: NextRequest) {
       try { hidden = row?.notes?.hidden ? JSON.parse(row.notes.hidden) : []; } catch { /* none */ }
       return NextResponse.json({ ok: true, previews: isStudiesId(id) ? previewsFor(row, actor, new Set(hidden)) : [] });
     }
-    return NextResponse.json({ ok: true, row: isStudiesId(id) ? readStudiesRow(row, actor) : readLocationRow(row, actor) });
+    return NextResponse.json({
+      ok: true,
+      row: isStudiesId(id) ? readStudiesRow(row, actor) : readLocationRow(row, actor, await ownStudyIds(id, actor)),
+    });
   } catch (e) {
     return NextResponse.json(
       { ok: false, error: e instanceof Error ? e.message : "Unavailable" },
@@ -82,7 +96,30 @@ export async function POST(req: NextRequest) {
     };
     const merged = isStudiesId(id)
       ? mergeStudiesWrite((existing ?? null) as Row | null, submitted, actor)
-      : mergeLocationWrite((existing ?? null) as Row | null, submitted, actor);
+      : mergeLocationWrite((existing ?? null) as Row | null, submitted, actor, await ownStudyIds(id, actor));
+    if (isStudiesId(id)) {
+      const beforeList = ((existing?.drafts ?? []) as Study[]);
+      const afterList = (merged.drafts ?? []) as Study[];
+      const locationId = id.replace(/__studies$/, "");
+      await recordVersions(locationId, beforeList, afterList, { id: auth.coach.id, name: auth.coach.name });
+      // The activity log: studies made, edited and removed.
+      const had = new Set(beforeList.map((s) => String(s.id)));
+      const titleOf = new Map(afterList.map((s) => [String(s.id), s.title]));
+      for (const s of afterList) if (!had.has(String(s.id))) await logActivity({ coachId: auth.coach.id, name: auth.coach.name, action: "study", detail: `made the study "${s.title}"` });
+      const beforeById = new Map(beforeList.map((s) => [String(s.id), s]));
+      for (const s of afterList) {
+        const old = beforeById.get(String(s.id));
+        if (old && JSON.stringify({ ...old, createdBy: 0 }) !== JSON.stringify({ ...s, createdBy: 0 })) {
+          await logActivity({ coachId: auth.coach.id, name: auth.coach.name, action: "study", detail: `edited the study "${s.title}"` });
+        }
+      }
+      const hiddenBefore = new Set<string>(((): string[] => { try { return existing?.notes?.hidden ? JSON.parse(existing.notes.hidden) : []; } catch { return []; } })());
+      try {
+        for (const h of JSON.parse(merged.notes?.hidden ?? "[]") as string[]) {
+          if (!hiddenBefore.has(h)) await logActivity({ coachId: auth.coach.id, name: auth.coach.name, action: "study", detail: `removed the study "${titleOf.get(h) ?? h}"` });
+        }
+      } catch { /* unreadable hidden list: nothing to log */ }
+    }
     const { error } = await supabaseServer.from("user_data").upsert({
       id,
       liked: merged.liked ?? {},

@@ -1,4 +1,5 @@
 "use client";
+import VersionHistory from "./VersionHistory";
 import { useRef, useState, useEffect, useCallback } from "react";
 import { Study, UserData } from "@/lib/types";
 import { generateLeaderPDF, generateStudentPDF } from "@/lib/generatePDF";
@@ -29,6 +30,9 @@ interface StudyModalProps {
   onToast: (msg: string) => void;
   /** Present when this coach may edit the study (their own, written in the builder or by the AI). */
   onEdit?: (study: Study) => void;
+  /** With onEdit: lists earlier saved versions and puts one back. */
+  locationId?: string;
+  onRestore?: (study: Study) => void;
 }
 
 export default function StudyModal({
@@ -42,7 +46,10 @@ export default function StudyModal({
   onDeleteStudy,
   onToast,
   onEdit,
+  locationId,
+  onRestore,
 }: StudyModalProps) {
+  const [showHistory, setShowHistory] = useState(false);
   const sid = String(study.id);
   const [notes, setNotes] = useState(userData.notes[sid] || "");
   const [attend, setAttend] = useState(String(userData.attendance[sid] || ""));
@@ -320,10 +327,15 @@ h1{font-size:22px;text-align:center;margin-bottom:4px}.th{font-size:13px;text-al
                 }}>📄 Leader PDF</button>
                 <button className="btn btn-outline" onClick={() => { generateStudentPDF(study); onToast("Student PDF downloaded!"); }}>📋 Student PDF</button>
                 {onEdit && <button className="btn btn-outline" onClick={() => onEdit(study)}>✏️ Edit</button>}
+                {onEdit && locationId && onRestore && <button className="btn btn-outline" onClick={() => setShowHistory((v) => !v)}>🕘 History</button>}
                 <button className="btn btn-outline" onClick={() => setShowQR(true)}>📲 QR Code</button>
                 <button className="btn btn-outline" onClick={doCopyFull}>📎 Copy</button>
                 <button className="btn btn-outline" onClick={() => socialRef.current?.scrollIntoView({ behavior: "smooth" })}>📱 Social</button>
               </div>
+
+              {showHistory && locationId && onRestore && (
+                <VersionHistory locationId={locationId} studyId={study.id} onRestore={(s) => { onRestore(s); setShowHistory(false); }} onClose={() => setShowHistory(false)} />
+              )}
 
               {/* Social card */}
               <hr className="divider" />

@@ -729,8 +729,11 @@ export default function Home() {
           {tab === "prayer" && (
             <PrayerRequests
               userData={userData}
+              storageKey={`_prayers_${session?.coachId ?? "anon"}`}
+              isCreator={isCreator}
+              coachNames={coachNames}
               onSave={async (requests) => {
-                await persist(prev => ({ ...prev, notes: { ...prev.notes, _prayers: JSON.stringify(requests) } }));
+                await persist(prev => ({ ...prev, notes: { ...prev.notes, [`_prayers_${session?.coachId ?? "anon"}`]: JSON.stringify(requests) } }));
               }}
             />
           )}
@@ -765,6 +768,8 @@ export default function Home() {
         <StudyModal study={openStudy} userData={userData} onClose={() => setOpenStudyId(null)}
           onSaveNotes={handleSaveNotes} onSaveEntries={handleSaveEntries} onSaveAttend={handleSaveAttend}
           onDeleteDraft={handleDeleteDraft} onDeleteStudy={handleDeleteStudy} onToast={showToast}
+          locationId={location.id}
+          onRestore={async (s) => { await handleStudyUpdated({ ...s, id: openStudy.id }); showToast("Version restored."); }}
           onEdit={canEdit(openStudy) ? (s) => { setEditStudy(s); setOpenStudyId(null); changeTab("create"); } : undefined} />
       )}
       {session && (session.mustChangePin || showChangePin) && (
