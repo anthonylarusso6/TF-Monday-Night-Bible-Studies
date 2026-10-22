@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { authFetch } from "@/lib/session";
 import { TOPIC_CATEGORIES } from "@/lib/topics";
+import { TOPIC_GUIDES, BUILD_STEPS } from "@/lib/topicGuides";
 
 interface SpinOff {
   title: string;
@@ -101,6 +102,41 @@ export default function TopicIdeas({ onCreateDraft, onQuickCreate, canUseAI = fa
                           📝 Save as Draft
                         </button>
                       </div>
+
+                      {/* Passages and the way to build it. Static, so every coach gets it and it never spends the AI. */}
+                      {TOPIC_GUIDES[topic] && (() => {
+                        const gd = TOPIC_GUIDES[topic];
+                        const label = { fontSize: 11, fontWeight: 800, textTransform: "uppercase" as const, letterSpacing: "1.5px", color: "var(--text2)", marginBottom: 8 };
+                        return (
+                          <div style={{ marginBottom: 18 }}>
+                            <div style={label}>Passages that fit</div>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 }}>
+                              {gd.verses.map(([ref, why], i) => (
+                                <div key={ref} style={{ background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 10, padding: "10px 12px" }}>
+                                  <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--text)" }}>
+                                    {ref}{i === 0 && <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 800, color: "var(--accent)", textTransform: "uppercase", letterSpacing: 1 }}>Anchor</span>}
+                                  </div>
+                                  <div style={{ fontSize: 12.5, color: "var(--text2)", lineHeight: 1.5, fontFamily: "Arial, sans-serif" }}>{why}</div>
+                                </div>
+                              ))}
+                            </div>
+
+                            <div style={label}>Build it like your studies</div>
+                            <div style={{ background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 10, padding: "12px 14px", marginBottom: 10, fontFamily: "Arial, sans-serif", fontSize: 12.5, lineHeight: 1.6, color: "var(--text)" }}>
+                              <div><b>The flip:</b> {gd.flip}</div>
+                              <div style={{ marginTop: 6 }}><b>Real-life example to use:</b> {gd.scene}</div>
+                              <div style={{ marginTop: 6 }}><b>A personal question:</b> {gd.ask}</div>
+                            </div>
+                            <ol style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 8 }}>
+                              {BUILD_STEPS.map((st) => (
+                                <li key={st.title} style={{ fontFamily: "Arial, sans-serif", fontSize: 12.5, lineHeight: 1.55, color: "var(--text2)" }}>
+                                  <b style={{ color: "var(--text)" }}>{st.title}.</b> {st.how}
+                                </li>
+                              ))}
+                            </ol>
+                          </div>
+                        );
+                      })()}
 
                       {/* Spin-off angles */}
                       {canUseAI && <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "1.5px", color: "var(--text2)", marginBottom: 10 }}>

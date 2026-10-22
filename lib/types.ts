@@ -61,6 +61,8 @@ export interface Study {
   sections?: StudySection[];
   subtitle?: string;
   imported?: boolean;
+  /** The coach who made it. Studies without one (the original library) are shared. */
+  createdBy?: string;
 }
 
 export interface UserData {

@@ -275,7 +275,10 @@ export default function Home() {
   const builtInStudies = location.hasBuiltInStudies ? STUDIES : [];
   const allStudies: Study[] = [
     ...generatedStudies, ...builtInStudies, ...userData.drafts,
-  ].filter((s) => !hiddenIds.has(String(s.id)));
+  ]
+    .filter((s) => !hiddenIds.has(String(s.id)))
+    // A coach sees the shared library and the studies they made themselves, not other coaches'. The Creator sees all.
+    .filter((s) => session?.role === "Creator" || !s.createdBy || s.createdBy === session?.coachId);
 
   const openStudy = openStudyId != null
     ? allStudies.find((s) => String(s.id) === String(openStudyId)) ?? null
@@ -303,6 +306,7 @@ export default function Home() {
       title: topic, series: "", draft: true,
       anchor: { ref: "", text: "" }, sup: [], bi: "Draft — build this study out.",
       bd: [], sbd: [], qs: [], tk: [],
+      createdBy: session?.coachId,
     };
     const ok = await persist(prev => ({ ...prev, drafts: [draft, ...prev.drafts] }));
     changeTab("drafts");
@@ -332,7 +336,8 @@ export default function Home() {
     const ok = await persistStudies({ studies: updatedGen, hiddenIds: [...nextHidden] });
     if (ok) showToast("Study removed.");
   }
-  async function handleStudyCreated(study: Study) {
+  async function handleStudyCreated(made: Study) {
+    const study: Study = { ...made, createdBy: session?.coachId };
     const updated = [study, ...generatedStudies];
     setGeneratedStudies(updated);
     await persistStudies({ studies: updated });
