@@ -1,12 +1,15 @@
 "use client";
 import { useState } from "react";
 import { Study } from "@/lib/types";
+import { SERIES_OPTIONS } from "@/lib/topics";
 
 interface OtherStudiesProps {
   studies: Study[];
   /** Who made each one, by coach id. Studies without an owner are the Triple F library. */
   authorOf: (study: Study) => string;
   onWrite: () => void;
+  /** Shown above the list, e.g. on the Series tab when a coach has no studies of their own yet. */
+  intro?: string;
 }
 
 /**
@@ -14,8 +17,10 @@ interface OtherStudiesProps {
  * breakdown, the questions or the printable handout. Seeing what others talked about is meant to get a coach
  * writing their own study, not to let them lead someone else's.
  */
-export default function OtherStudies({ studies, authorOf, onWrite }: OtherStudiesProps) {
+export default function OtherStudies({ studies, authorOf, onWrite, intro }: OtherStudiesProps) {
   const [open, setOpen] = useState<string | null>(null);
+  const [series, setSeries] = useState<string>("");
+  const shown = series ? studies.filter((s) => s.series === series) : studies;
 
   return (
     <div>
@@ -26,14 +31,28 @@ export default function OtherStudies({ studies, authorOf, onWrite }: OtherStudie
         </button>
       </p>
 
-      {studies.length === 0 && (
+      {intro && <p style={{ fontFamily: "Arial, sans-serif", fontSize: 13, color: "var(--text)", fontWeight: 700, marginBottom: 12 }}>{intro}</p>}
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+        {["", ...SERIES_OPTIONS].map((x) => {
+          const n = x ? studies.filter((s) => s.series === x).length : studies.length;
+          return (
+            <button key={x || "all"} onClick={() => setSeries(x)}
+              style={{ padding: "8px 12px", minHeight: 40, borderRadius: 20, border: "1px solid var(--border)", fontSize: 13, fontWeight: 600, cursor: "pointer",
+                background: series === x ? "var(--primary)" : "var(--card)", color: series === x ? "white" : "var(--text2)" }}>
+              {x || "All"} · {n}
+            </button>
+          );
+        })}
+      </div>
+
+      {shown.length === 0 && (
         <div style={{ textAlign: "center", padding: 40, color: "var(--text2)", fontFamily: "Arial, sans-serif", fontSize: 14 }}>
           No other studies yet.
         </div>
       )}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {studies.map((s) => {
+        {shown.map((s) => {
           const id = String(s.id);
           const isOpen = open === id;
           return (

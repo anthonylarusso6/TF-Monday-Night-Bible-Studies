@@ -642,7 +642,12 @@ export default function Home() {
                     <span className="section-count">{gridCount}</span>
                   </div>
                 )}
+                {tab === "series" && !isCreator && allStudies.filter((s) => !s.draft).length === 0 ? (
+                  <OtherStudies studies={othersStudies} authorOf={authorOf} onWrite={() => changeTab("create")}
+                    intro="You have not written a study yet, so here is what other coaches have covered in each series." />
+                ) : (
                 <StudyGrid studies={gridStudies} userData={userData} tab={tab as "all"|"liked"|"drafts"|"series"} search={search} onOpen={setOpenStudyId} onToggleLike={toggleLike} />
+                )}
               </>
             );
           })()}
