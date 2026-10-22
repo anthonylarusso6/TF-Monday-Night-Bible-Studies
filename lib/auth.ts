@@ -27,7 +27,10 @@ const LOCKOUT_MS = 15 * 60 * 1000;
 export interface StoredCoach {
   id: string;
   name: string;
-  pin: string;
+  /** Plain PIN from before hashing existed. Converted to `pinHash` the next time that coach signs in. */
+  pin?: string;
+  /** HMAC of the PIN with the server's secret: a copy of the database alone cannot be used to read or guess PINs. */
+  pinHash?: string;
   role: string;
   locationId: string;
   /** Created from the login screen and not yet approved by an admin: cannot sign in or see anything. */
@@ -57,9 +60,29 @@ export async function writeRegistry(coaches: StoredCoach[]): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
-export function publicCoach({ pin, ...rest }: StoredCoach) {
-  void pin;
+export function publicCoach({ pin, pinHash, ...rest }: StoredCoach) {
+  void pin; void pinHash;
   return rest;
+}
+
+// ── PINs ─────────────────────────────────────────────────────────────────────
+
+/** Hash of a PIN, bound to the coach and to the server secret. Fails closed without SESSION_SECRET. */
+export function hashPin(coachId: string, pin: string): string {
+  const key = secret();
+  if (!key) throw new Error("Server is missing SESSION_SECRET.");
+  return crypto.createHmac("sha256", key).update(`pin:${coachId}:${pin}`).digest("hex");
+}
+
+/** Whether `pin` is this coach's PIN, whether it is stored hashed or (still) plain. */
+export function pinMatches(coach: StoredCoach, pin: string): boolean {
+  if (coach.pinHash) return sameString(coach.pinHash, hashPin(coach.id, pin));
+  return !!coach.pin && sameString(coach.pin, pin);
+}
+
+/** What a sign-in token is signed with: changes whenever the PIN does. */
+export function pinKey(coach: StoredCoach): string {
+  return coach.pinHash ?? coach.pin ?? "";
 }
 
 // ── Tokens ───────────────────────────────────────────────────────────────────
@@ -87,7 +110,7 @@ export function issueToken(coach: StoredCoach): string {
   const payload = Buffer.from(
     JSON.stringify({ cid: coach.id, iat: now, exp: now + TOKEN_TTL_MS })
   ).toString("base64url");
-  return `${payload}.${sign(payload, coach.pin, key)}`;
+  return `${payload}.${sign(payload, pinKey(coach), key)}`;
 }
 
 export type AuthResult =
@@ -135,7 +158,7 @@ export async function requireCoach(
   }
 
   const coach = registry.find((c) => c.id === claims.cid);
-  if (!coach || !sameString(sig, sign(payload, coach.pin, key))) {
+  if (!coach || !sameString(sig, sign(payload, pinKey(coach), key))) {
     return deny(401, "Please sign in again.");
   }
   if (coach.pending) return deny(403, "Your account is waiting for approval.");

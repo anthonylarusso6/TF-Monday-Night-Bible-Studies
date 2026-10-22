@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { STUDIES } from "@/lib/studies";
-import { loadUserData, saveUserData, loadStudies, saveStudies } from "@/lib/supabase";
+import { loadUserData, saveUserData, loadStudies, saveStudies, loadPreviews } from "@/lib/supabase";
 import { Study, UserData } from "@/lib/types";
 import type { StudyStore } from "@/lib/supabase";
 import { LOCATIONS, Location } from "@/lib/locations";
@@ -54,6 +54,7 @@ const GRID_TABS = new Set<Tab>(["all", "liked", "drafts", "series"]);
 export default function Home() {
   const [session, setSession] = useState<CoachSession | null>(null);
   // coach id → name, to say who wrote each study on the Other Coaches' Studies screen.
+  const [previews, setPreviews] = useState<Study[]>([]);
   const [builderTopic, setBuilderTopic] = useState<string | undefined>(undefined);
   const [coachNames, setCoachNames] = useState<Record<string, string>>({});
   // Studies from before owners were recorded are the Creator's own (the original library and anything made earlier).
@@ -127,6 +128,7 @@ export default function Home() {
       .then(([u, st]) => {
         applyUserData(u.data);
         applyStore(st.data);
+        if (coachSession.role !== "Creator") loadPreviews(savedLocationId).then(setPreviews);
         setPendingUpload(!(u.ok && st.ok));
         setLoaded(true);
       });
@@ -158,7 +160,9 @@ export default function Home() {
   }
 
   function applyStore(store: StudyStore) {
-    setGeneratedStudies(store.studies);
+    // Studies other coaches made are not kept here (an older copy on this phone may hold some): only your own, or all for the Creator.
+    const me = getSession();
+    setGeneratedStudies(me && me.role !== "Creator" ? store.studies.filter((s) => s.createdBy === me.coachId) : store.studies);
     setHiddenIds(new Set(store.hiddenIds));
     setAttendanceGoal(store.goal);
     setGoalInput(String(store.goal));
@@ -288,7 +292,9 @@ export default function Home() {
   // The main screens hold only the studies a coach made themselves, which pushes them to write their own. The
   // Creator sees every study. Everyone else sees the rest as previews under "Other Coaches' Studies".
   const allStudies: Study[] = isCreator ? everyStudy : everyStudy.filter((s) => s.createdBy === session?.coachId);
-  const othersStudies: Study[] = isCreator ? [] : everyStudy.filter((s) => !s.draft && s.createdBy !== session?.coachId);
+  const othersStudies: Study[] = isCreator
+    ? []
+    : [...builtInStudies, ...previews].filter((s) => !s.draft && s.createdBy !== session?.coachId && !hiddenIds.has(String(s.id)));
   const authorOf = (s: Study) => (s.createdBy ? coachNames[s.createdBy] || "Another coach" : creatorName || "Anthony");
 
   const openStudy = openStudyId != null

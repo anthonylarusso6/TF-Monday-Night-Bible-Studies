@@ -244,6 +244,17 @@ async function migrateLegacyStudies(locationId: string): Promise<StudyStore | nu
   }
 }
 
+/** Other coaches' studies as previews (the idea only). The server sends nothing more to a coach. */
+export async function loadPreviews(locationId = DEFAULT_LOCATION.id): Promise<Study[]> {
+  try {
+    const res = await authFetch(`/api/data?id=${encodeURIComponent(studiesId(locationId))}&previews=1`, { cache: "no-store" });
+    const body = await res.json();
+    return res.ok && body.ok ? (body.previews as Study[]) : [];
+  } catch {
+    return [];
+  }
+}
+
 export async function saveStudies(
   store: StudyStore,
   locationId = DEFAULT_LOCATION.id

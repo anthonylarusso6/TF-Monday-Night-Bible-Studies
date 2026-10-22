@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  readRegistry, writeRegistry, publicCoach, issueToken, requireCoach,
+  readRegistry, writeRegistry, publicCoach, issueToken, requireCoach, hashPin, pinMatches, pinKey,
   lockedFor, recordFailure, clearFailures, StoredCoach,
 } from "@/lib/auth";
 import { MANAGER_ROLES, FULL_ROLES, ROLE_CREATOR, ROLE_ADMIN, ADMIN_ASSIGNABLE, mayManage, assignableRoles } from "@/lib/roles";
@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
       }
 
       const coaches = await readRegistry();
-      const match = coaches.find((c) => c.name.toLowerCase() === name.toLowerCase() && c.pin === pin);
+      const match = coaches.find((c) => c.name.toLowerCase() === name.toLowerCase() && pinMatches(c, pin));
       if (!match) {
         const lock = await recordFailure(name);
         // Same shape whether the name or the PIN was wrong, so this can't be
@@ -66,6 +66,15 @@ export async function POST(req: NextRequest) {
         });
       }
       await clearFailures(name);
+      // A PIN still stored in plain text is converted the first time that coach signs in. Their other devices sign in
+      // again once, because the token is tied to the PIN's stored form.
+      if (!match.pinHash) {
+        const upgraded: StoredCoach = { ...match, pinHash: hashPin(match.id, pin) };
+        delete upgraded.pin;
+        await writeRegistry(coaches.map((c) => (c.id === match.id ? upgraded : c)));
+        if (upgraded.pending) return NextResponse.json({ ok: true, coach: null, pending: true });
+        return NextResponse.json({ ok: true, coach: publicCoach(upgraded), token: issueToken(upgraded) });
+      }
       if (match.pending) return NextResponse.json({ ok: true, coach: null, pending: true });
       return NextResponse.json({ ok: true, coach: publicCoach(match), token: issueToken(match) });
     }
@@ -93,7 +102,8 @@ export async function POST(req: NextRequest) {
       if (coaches.filter((c) => c.pending).length >= 25) {
         return NextResponse.json({ ok: false, error: "Too many sign-ups are waiting. Ask your admin to approve them first." }, { status: 429 });
       }
-      const coach: StoredCoach = { id: `coach_${Date.now()}`, name, pin, role, locationId, pending: true };
+      const id = `coach_${Date.now()}`;
+      const coach: StoredCoach = { id, name, pinHash: hashPin(id, pin), role, locationId, pending: true };
       await writeRegistry([...coaches, coach]);
       return NextResponse.json({ ok: true, pending: true });
     }
@@ -126,7 +136,8 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: false, error: actorAdd.role === ROLE_ADMIN ? "Admins can add coaches at their own location, with a coach, volunteer or social media role." : "You can't give that role." }, { status: 403 });
       }
 
-      const coach: StoredCoach = { id: `coach_${Date.now()}`, name, pin, role, locationId };
+      const newId = `coach_${Date.now()}`;
+      const coach: StoredCoach = { id: newId, name, pinHash: hashPin(newId, pin), role, locationId };
       await writeRegistry([...coaches, coach]);
       return NextResponse.json({
         ok: true,
@@ -182,7 +193,7 @@ export async function POST(req: NextRequest) {
         name: nextName,
         role: nextRole,
         locationId: nextLocation,
-        ...(pin ? { pin } : {}),
+        ...(pin ? { pinHash: hashPin(c.id, pin), pin: undefined } : {}),
         ...(body.approve ? { pending: false } : {}),
       } : c);
       await writeRegistry(updated);
@@ -191,7 +202,7 @@ export async function POST(req: NextRequest) {
       // part of the signature — so hand back a fresh one rather than signing
       // the Head Coach out mid-edit.
       const self = updated.find((c) => c.id === auth.coach.id);
-      const refreshedToken = self && self.pin !== auth.coach.pin ? issueToken(self) : undefined;
+      const refreshedToken = self && pinKey(self) !== pinKey(auth.coach) ? issueToken(self) : undefined;
 
       return NextResponse.json({
         ok: true,
