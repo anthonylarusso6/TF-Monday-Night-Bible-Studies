@@ -3,6 +3,7 @@ import {
   readRegistry, writeRegistry, publicCoach, issueToken, requireCoach, hashPin, pinMatches, pinKey,
   lockedFor, recordFailure, clearFailures, StoredCoach,
 } from "@/lib/auth";
+import { logActivity } from "@/lib/activity";
 import { MANAGER_ROLES, FULL_ROLES, ROLE_CREATOR, ROLE_ADMIN, ADMIN_ASSIGNABLE, mayManage, assignableRoles } from "@/lib/roles";
 
 /**
@@ -27,10 +28,16 @@ export async function GET(req: NextRequest) {
     // Creator appears there as "Lead Coach": the name is listed, the real role is not. A signed-in manager sees
     // the whole registry as it is.
     const manager = await requireCoach(req, { roles: MANAGER_ROLES });
+    // A signed-in coach also gets their own record (role, AI switch, PIN flag) so their app can keep up with the Creator's changes.
+    const self = manager.ok ? manager : await requireCoach(req);
+    const me = self.ok ? publicCoach(self.coach) : null;
     const visible = manager.ok
       ? coaches
-      : coaches.filter((c) => !c.pending).map((c) => (c.role === ROLE_CREATOR ? { ...c, role: "Lead Coach" } : c));
-    return NextResponse.json({ ok: true, coaches: visible.map(publicCoach) });
+      : coaches
+          .filter((c) => !c.pending && !c.suspended)
+          // Only the name, role and place: the AI switch and PIN flags are the Creator's business.
+          .map((c) => ({ ...c, ai: undefined, mustChangePin: undefined, role: c.role === ROLE_CREATOR ? "Lead Coach" : c.role }));
+    return NextResponse.json({ ok: true, coaches: visible.map(publicCoach), me });
   } catch (e) {
     return unavailable(e);
   }
@@ -68,14 +75,17 @@ export async function POST(req: NextRequest) {
       await clearFailures(name);
       // A PIN still stored in plain text is converted the first time that coach signs in. Their other devices sign in
       // again once, because the token is tied to the PIN's stored form.
+      await logActivity({ coachId: match.id, name: match.name, action: "signin", detail: "signed in" });
       if (!match.pinHash) {
         const upgraded: StoredCoach = { ...match, pinHash: hashPin(match.id, pin) };
         delete upgraded.pin;
         await writeRegistry(coaches.map((c) => (c.id === match.id ? upgraded : c)));
         if (upgraded.pending) return NextResponse.json({ ok: true, coach: null, pending: true });
+        if (upgraded.suspended) return NextResponse.json({ ok: true, coach: null, suspended: true });
         return NextResponse.json({ ok: true, coach: publicCoach(upgraded), token: issueToken(upgraded) });
       }
       if (match.pending) return NextResponse.json({ ok: true, coach: null, pending: true });
+      if (match.suspended) return NextResponse.json({ ok: true, coach: null, suspended: true });
       return NextResponse.json({ ok: true, coach: publicCoach(match), token: issueToken(match) });
     }
 
@@ -105,7 +115,29 @@ export async function POST(req: NextRequest) {
       const id = `coach_${Date.now()}`;
       const coach: StoredCoach = { id, name, pinHash: hashPin(id, pin), role, locationId, pending: true };
       await writeRegistry([...coaches, coach]);
+      await logActivity({ coachId: coach.id, name: coach.name, action: "signup", detail: `asked to join as ${role} (${locationId})` });
       return NextResponse.json({ ok: true, pending: true });
+    }
+
+    // ── Change my own PIN ──────────────────────────────────────────────────
+    if (action === "changePin") {
+      const auth = await requireCoach(req);
+      if (!auth.ok) return auth.response;
+      const oldPin = String(body.oldPin || "");
+      const newPin = String(body.newPin || "");
+      if (!pinMatches(auth.coach, oldPin)) {
+        return NextResponse.json({ ok: false, error: "That is not your current PIN." }, { status: 403 });
+      }
+      if (!/^\d{4}$/.test(newPin)) return NextResponse.json({ ok: false, error: "PIN must be 4 digits." }, { status: 400 });
+      if (newPin === oldPin) return NextResponse.json({ ok: false, error: "Pick a different PIN than the one you have." }, { status: 400 });
+      if (/^(\d)\1{3}$/.test(newPin) || newPin === "1234" || newPin === "4321") {
+        return NextResponse.json({ ok: false, error: "That PIN is too easy to guess. Pick another." }, { status: 400 });
+      }
+      const updatedSelf: StoredCoach = { ...auth.coach, pinHash: hashPin(auth.coach.id, newPin), mustChangePin: false };
+      delete updatedSelf.pin;
+      await writeRegistry(auth.registry.map((c) => (c.id === auth.coach.id ? updatedSelf : c)));
+      await logActivity({ coachId: auth.coach.id, name: auth.coach.name, action: "pin", detail: "changed their own PIN" });
+      return NextResponse.json({ ok: true, coach: publicCoach(updatedSelf), token: issueToken(updatedSelf) });
     }
 
     // ── Add ────────────────────────────────────────────────────────────────
@@ -137,7 +169,8 @@ export async function POST(req: NextRequest) {
       }
 
       const newId = `coach_${Date.now()}`;
-      const coach: StoredCoach = { id: newId, name, pinHash: hashPin(newId, pin), role, locationId };
+      // The Creator picked this PIN, so the coach chooses their own at first sign-in (unless this is the very first account).
+      const coach: StoredCoach = { id: newId, name, pinHash: hashPin(newId, pin), role, locationId, ...(bootstrapping ? {} : { mustChangePin: true }) };
       await writeRegistry([...coaches, coach]);
       return NextResponse.json({
         ok: true,
@@ -168,6 +201,9 @@ export async function POST(req: NextRequest) {
       if (pin && !/^\d{4}$/.test(pin)) {
         return NextResponse.json({ ok: false, error: "PIN must be 4 digits." }, { status: 400 });
       }
+      if (body.suspended === true && existing.id === auth.coach.id) {
+        return NextResponse.json({ ok: false, error: "You can't suspend yourself." }, { status: 409 });
+      }
       const nextRole = body.role ? String(body.role) : existing.role;
       // First-time hand-over: with no Creator yet, a Head Coach can make themselves the Creator (and only themselves).
       const claimingCreator =
@@ -193,10 +229,21 @@ export async function POST(req: NextRequest) {
         name: nextName,
         role: nextRole,
         locationId: nextLocation,
-        ...(pin ? { pinHash: hashPin(c.id, pin), pin: undefined } : {}),
+        ...(pin ? { pinHash: hashPin(c.id, pin), pin: undefined, mustChangePin: body.forceChange === true } : {}),
+        ...(typeof body.ai === "boolean" ? { ai: body.ai } : {}),
+        ...(typeof body.suspended === "boolean" ? { suspended: body.suspended } : {}),
         ...(body.approve ? { pending: false } : {}),
       } : c);
       await writeRegistry(updated);
+      {
+        const what: string[] = [];
+        if (body.approve) what.push("approved");
+        if (typeof body.suspended === "boolean") what.push(body.suspended ? "suspended" : "restored");
+        if (typeof body.ai === "boolean") what.push(body.ai ? "AI switched on" : "AI switched off");
+        if (pin) what.push("PIN changed");
+        if (body.role) what.push(`role ${nextRole}`);
+        await logActivity({ coachId: auth.coach.id, name: auth.coach.name, action: "admin", detail: `${existing.name}: ${what.join(", ") || "edited"}` });
+      }
 
       // Changing your own PIN invalidates your own sign-in, since the PIN is
       // part of the signature — so hand back a fresh one rather than signing
@@ -225,6 +272,7 @@ export async function POST(req: NextRequest) {
       }
       const remaining = coaches.filter((c) => c.id !== id);
       await writeRegistry(remaining);
+      await logActivity({ coachId: auth.coach.id, name: auth.coach.name, action: "admin", detail: `${target.name}: removed` });
       return NextResponse.json({ ok: true, coaches: remaining.map(publicCoach) });
     }
 

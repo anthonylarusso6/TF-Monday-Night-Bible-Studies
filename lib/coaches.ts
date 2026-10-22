@@ -18,6 +18,9 @@ export interface Coach {
   locationId: string;
   /** Signed up from the login screen, waiting for an admin to approve. */
   pending?: boolean;
+  suspended?: boolean;
+  ai?: boolean;
+  mustChangePin?: boolean;
 }
 
 /**
@@ -83,6 +86,17 @@ export async function loadCoaches(): Promise<RegistryResult> {
   }
 }
 
+/** My own record from the server (role, AI switch, PIN flag), or null when not signed in. */
+export async function loadMe(): Promise<Coach | null> {
+  try {
+    const res = await authFetch("/api/coaches", { cache: "no-store" });
+    const json = await res.json();
+    return res.ok && json.ok ? ((json.me as Coach) ?? null) : null;
+  } catch {
+    return null;
+  }
+}
+
 export interface NewCoach {
   name: string;
   role: string;
@@ -102,6 +116,7 @@ export async function addCoach(coach: NewCoach): Promise<{ coach: Coach; token?:
 
 export async function updateCoach(update: {
   id: string; name?: string; role?: string; locationId?: string; pin?: string; approve?: boolean;
+  ai?: boolean; suspended?: boolean; /** With a new PIN: they must pick their own at next sign-in. */ forceChange?: boolean;
 }): Promise<Coach[]> {
   const { coaches, token } = await post({ action: "update", ...update });
   // Changing your own PIN invalidates your old sign-in; the server sends a
@@ -128,6 +143,7 @@ export async function signUpCoach(c: NewCoach): Promise<void> {
 export interface SignInResult {
   coach: Coach | null;
   pending?: boolean;
+  suspended?: boolean;
   token?: string;
   /** Set when too many wrong PINs have locked this name for a while. */
   lockedMinutes?: number;
@@ -138,11 +154,28 @@ export interface SignInResult {
  * is not on this device.
  */
 export async function verifyPin(name: string, pin: string): Promise<SignInResult> {
-  const { coach, token, lockedMinutes, pending } = await post({ action: "verify", name, pin });
-  return { coach: (coach as Coach) ?? null, token, lockedMinutes, pending };
+  const { coach, token, lockedMinutes, pending, suspended } = await post({ action: "verify", name, pin });
+  return { coach: (coach as Coach) ?? null, token, lockedMinutes, pending, suspended };
 }
 
 import { ROLE_SOCIAL_MEDIA } from "./roles";
 
 export const ROLES = ["Creator", "Head Coach", "Admin", "Assistant Coach", "Volunteer", ROLE_SOCIAL_MEDIA];
 export { LOCATIONS };
+
+/** Change my own PIN. Needs the current one. The server hands back a fresh sign-in, since the old one was tied to the old PIN. */
+export async function changeMyPin(oldPin: string, newPin: string): Promise<void> {
+  const { token } = await post({ action: "changePin", oldPin, newPin });
+  const current = getSession();
+  if (current && token) setSession({ ...current, token, mustChangePin: false });
+}
+
+export interface ActivityEntry { at: string; coachId: string; name: string; action: string; detail: string }
+
+/** The Creator's activity log. */
+export async function loadActivity(): Promise<ActivityEntry[]> {
+  const res = await authFetch("/api/activity", { cache: "no-store" });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.ok) throw new Error(json.error || "Could not load the activity.");
+  return json.entries as ActivityEntry[];
+}

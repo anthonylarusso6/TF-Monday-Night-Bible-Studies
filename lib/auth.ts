@@ -35,6 +35,12 @@ export interface StoredCoach {
   locationId: string;
   /** Created from the login screen and not yet approved by an admin: cannot sign in or see anything. */
   pending?: boolean;
+  /** Locked out by the Creator: cannot sign in or use anything, but nothing they made is lost. */
+  suspended?: boolean;
+  /** Lets this coach use the AI (generate, import, ideas, prep guide) without being the Creator. */
+  ai?: boolean;
+  /** Set when the Creator chose the PIN for them: they must pick their own at the next sign-in. */
+  mustChangePin?: boolean;
 }
 
 export const HEAD_COACH = "Head Coach";
@@ -63,6 +69,19 @@ export async function writeRegistry(coaches: StoredCoach[]): Promise<void> {
 export function publicCoach({ pin, pinHash, ...rest }: StoredCoach) {
   void pin; void pinHash;
   return rest;
+}
+
+/** Whether this coach may use the AI: the Creator always, anyone else only when the Creator switched it on. */
+export function mayUseAI(coach: StoredCoach): boolean {
+  return coach.role === "Creator" || coach.ai === true;
+}
+
+/** Like requireCoach, but only for someone allowed the AI. */
+export async function requireAI(req: NextRequest): Promise<AuthResult> {
+  const auth = await requireCoach(req);
+  if (!auth.ok) return auth;
+  if (!mayUseAI(auth.coach)) return deny(403, "The AI is only available to coaches the Creator has allowed.");
+  return auth;
 }
 
 // ── PINs ─────────────────────────────────────────────────────────────────────
@@ -162,6 +181,7 @@ export async function requireCoach(
     return deny(401, "Please sign in again.");
   }
   if (coach.pending) return deny(403, "Your account is waiting for approval.");
+  if (coach.suspended) return deny(401, "Your account is suspended. Ask the Creator.");
   if (opts.roles && !opts.roles.includes(coach.role)) {
     return deny(403, "You don't have access to that.");
   }

@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Coach, loadCoaches, updateCoach, addCoach, removeCoach, ROLES, LOCATIONS } from "@/lib/coaches";
+import { Coach, loadCoaches, updateCoach, addCoach, removeCoach, loadActivity, ActivityEntry, ROLES, LOCATIONS } from "@/lib/coaches";
 import { CoachSession } from "@/lib/coaches";
 import { assignableRoles, mayManage, ROLE_ADMIN } from "@/lib/roles";
 
@@ -25,6 +25,10 @@ export default function AdminPanel({ session, onPendingChange }: AdminPanelProps
   const [name, setName] = useState("");
   const [role, setRole] = useState("Assistant Coach");
   const [locationId, setLocationId] = useState(LOCATIONS[0].id);
+  const [ai, setAi] = useState(false);
+  const [forceChange, setForceChange] = useState(true);
+  const [activity, setActivity] = useState<ActivityEntry[] | null>(null);
+  const [activityError, setActivityError] = useState("");
   const [pin, setPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
   const [error, setError] = useState("");
@@ -58,7 +62,7 @@ export default function AdminPanel({ session, onPendingChange }: AdminPanelProps
 
   function startEdit(coach: Coach) {
     setEditingCoach(coach);
-    setName(coach.name); setRole(coach.role); setLocationId(coach.locationId);
+    setName(coach.name); setRole(coach.role); setLocationId(coach.locationId); setAi(!!coach.ai); setForceChange(true);
     setPin(""); setConfirmPin(""); setError("");
     setView("edit");
   }
@@ -92,8 +96,8 @@ export default function AdminPanel({ session, onPendingChange }: AdminPanelProps
       // The server re-reads the registry before writing, so a coach added from
       // another device since this panel loaded is not dropped.
       const updated = await updateCoach({
-        id: editingCoach.id, name: name.trim(), role, locationId,
-        ...(pin ? { pin } : {}),
+        id: editingCoach.id, name: name.trim(), role, locationId, ai,
+        ...(pin ? { pin, forceChange } : {}),
       });
       setCoaches(updated);
       setView("list");
@@ -102,6 +106,22 @@ export default function AdminPanel({ session, onPendingChange }: AdminPanelProps
       setError(e instanceof Error ? e.message : "Couldn't save changes.");
     }
     setSaving(false);
+  }
+
+  async function handleSuspend(coach: Coach, next: boolean) {
+    if (next && !confirm(`Suspend ${coach.name}? They are signed out and can't get back in until you restore them. Their studies are kept.`)) return;
+    try {
+      setCoaches(await updateCoach({ id: coach.id, suspended: next }));
+      showToast(next ? `${coach.name} suspended.` : `${coach.name} restored.`);
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : "Couldn't change that.");
+    }
+  }
+
+  async function toggleActivity() {
+    if (activity) { setActivity(null); return; }
+    try { setActivity(await loadActivity()); setActivityError(""); }
+    catch (e) { setActivityError(e instanceof Error ? e.message : "Could not load the activity."); }
   }
 
   async function handleApprove(coach: Coach) {
@@ -177,6 +197,8 @@ export default function AdminPanel({ session, onPendingChange }: AdminPanelProps
                     <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                       <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text)" }}>{coach.name}</span>
                       {isMe && <span style={{ fontSize: 10, fontWeight: 700, background: "rgba(26,138,181,0.12)", color: "var(--accent)", padding: "2px 8px", borderRadius: 20 }}>You</span>}
+                      {coach.suspended && <span style={{ fontSize: 10, fontWeight: 700, background: "#fef2f2", color: "#991b1b", padding: "2px 8px", borderRadius: 20 }}>Suspended</span>}
+                      {coach.ai && coach.role !== "Creator" && <span style={{ fontSize: 10, fontWeight: 700, background: "rgba(26,138,181,0.12)", color: "var(--accent)", padding: "2px 8px", borderRadius: 20 }}>AI on</span>}
                       {coach.pending && <span style={{ fontSize: 10, fontWeight: 700, background: "#fdf6e7", color: "#92652a", padding: "2px 8px", borderRadius: 20 }}>Waiting for approval</span>}
                     </div>
                     <div style={{ fontSize: 12, color: "var(--text2)", fontFamily: "Arial, sans-serif", marginTop: 2 }}>
@@ -192,6 +214,11 @@ export default function AdminPanel({ session, onPendingChange }: AdminPanelProps
                         Approve
                       </button>
                     )}
+                    {!isMe && !coach.pending && mayManage(session, coach) && (
+                      <button onClick={() => handleSuspend(coach, !coach.suspended)} style={{ padding: "6px 10px", background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12, fontWeight: 600, color: coach.suspended ? "var(--accent)" : "var(--text2)", cursor: "pointer" }}>
+                        {coach.suspended ? "Restore" : "Suspend"}
+                      </button>
+                    )}
                     {mayManage(session, coach) && <button onClick={() => startEdit(coach)} style={{ padding: "6px 12px", background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12, fontWeight: 600, color: "var(--text2)", cursor: "pointer" }}>
                       ✎ Edit
                     </button>}
@@ -204,6 +231,28 @@ export default function AdminPanel({ session, onPendingChange }: AdminPanelProps
                 </div>
               );
             })}
+          </div>
+
+          {/* Activity: who did what */}
+          <div style={{ marginTop: 24, background: "var(--card)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 18px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1.5, color: "var(--text2)" }}>Activity</div>
+              <button onClick={toggleActivity} style={{ padding: "8px 12px", minHeight: 40, background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12, fontWeight: 600, color: "var(--text2)", cursor: "pointer" }}>
+                {activity ? "Hide" : "Show recent"}
+              </button>
+            </div>
+            {activityError && <div className="error-box" style={{ marginTop: 10 }}>{activityError}</div>}
+            {activity && (
+              <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 0 }}>
+                {activity.length === 0 && <div style={{ fontSize: 13, color: "var(--text2)", fontFamily: "Arial, sans-serif" }}>Nothing yet.</div>}
+                {activity.slice(0, 60).map((a, i) => (
+                  <div key={i} style={{ padding: "8px 0", borderBottom: "1px solid var(--border)", fontFamily: "Arial, sans-serif", fontSize: 13, lineHeight: 1.45 }}>
+                    <b>{a.name}</b> {a.detail}
+                    <div style={{ fontSize: 11, color: "var(--text2)" }}>{new Date(a.at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })} · {a.action}</div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Location summary */}
@@ -269,6 +318,18 @@ export default function AdminPanel({ session, onPendingChange }: AdminPanelProps
                 <input className="form-input" type="password" maxLength={4} value={confirmPin} onChange={e => setConfirmPin(e.target.value.replace(/\D/g,"").slice(0,4))} placeholder="••••" />
               </div>
             </div>
+            {pin && (
+              <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13, fontFamily: "Arial, sans-serif", margin: "8px 0 4px" }}>
+                <input type="checkbox" checked={forceChange} onChange={e => setForceChange(e.target.checked)} />
+                They choose their own PIN at the next sign-in
+              </label>
+            )}
+            {view === "edit" && editingCoach?.role !== "Creator" && (
+              <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13, fontFamily: "Arial, sans-serif", margin: "10px 0 4px" }}>
+                <input type="checkbox" checked={ai} onChange={e => setAi(e.target.checked)} />
+                Can use the AI (generate a study, import, topic ideas, prep guide)
+              </label>
+            )}
 
             {error && <div className="error-box" style={{ marginBottom: 14 }}>{error}</div>}
 

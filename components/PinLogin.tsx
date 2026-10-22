@@ -60,7 +60,12 @@ export default function PinLogin({ onLogin, notice }: PinLoginProps) {
     setVerifying(true);
     setError("");
     try {
-      const { coach, token, lockedMinutes, pending } = await verifyPin(nameInput, pin);
+      const { coach, token, lockedMinutes, pending, suspended } = await verifyPin(nameInput, pin);
+      if (suspended) {
+        setPin("");
+        setError("Your account is suspended. Ask the Creator.");
+        return;
+      }
       if (pending) {
         setPin("");
         setError("Your account is waiting for approval. An admin has to approve it before you can sign in.");
@@ -73,6 +78,8 @@ export default function PinLogin({ onLogin, notice }: PinLoginProps) {
           role: coach.role,
           locationId: coach.locationId,
           token,
+          ai: coach.ai,
+          mustChangePin: coach.mustChangePin,
         };
         setSession(session);
         onLogin(session);

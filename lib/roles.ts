@@ -41,8 +41,8 @@ export const ROLE_HEAD_COACH = "Head Coach";
  */
 export const AI_ROLES = [ROLE_CREATOR];
 
-export function canUseAI(role: string | undefined): boolean {
-  return !!role && AI_ROLES.includes(role);
+export function canUseAI(role: string | undefined, ai?: boolean): boolean {
+  return (!!role && AI_ROLES.includes(role)) || ai === true;
 }
 
 /** Full control of every coach at every location. */

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireCoach } from "@/lib/auth";
-import { AI_ROLES } from "@/lib/roles";
+import { requireAI } from "@/lib/auth";
+import { logActivity } from "@/lib/activity";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { Study } from "@/lib/types";
 
@@ -8,8 +8,9 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
 export async function POST(req: NextRequest) {
   // Every call spends the Gemini quota, so only signed-in coaches may use it.
-  const auth = await requireCoach(req, { roles: AI_ROLES });
+  const auth = await requireAI(req);
   if (!auth.ok) return auth.response;
+  void logActivity({ coachId: auth.coach.id, name: auth.coach.name, action: "ai", detail: "studyprep" });
 
   const { study }: { study: Study } = await req.json();
   if (!study) return NextResponse.json({ error: "Study required" }, { status: 400 });

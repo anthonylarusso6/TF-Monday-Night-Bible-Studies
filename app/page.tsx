@@ -5,7 +5,8 @@ import { loadUserData, saveUserData, loadStudies, saveStudies, loadPreviews } fr
 import { Study, UserData } from "@/lib/types";
 import type { StudyStore } from "@/lib/supabase";
 import { LOCATIONS, Location } from "@/lib/locations";
-import { getSession, clearSession, setSession as saveSession, loadCoaches, CoachSession } from "@/lib/coaches";
+import { getSession, clearSession, setSession as saveSession, loadCoaches, loadMe, CoachSession } from "@/lib/coaches";
+import ChangePin from "@/components/ChangePin";
 import { AUTH_EXPIRED_EVENT } from "@/lib/session";
 import { allowedTabs, defaultTab, isSocialMediaRole, canUseAI, isManager } from "@/lib/roles";
 import StudyGrid from "@/components/StudyGrid";
@@ -54,6 +55,7 @@ const GRID_TABS = new Set<Tab>(["all", "liked", "drafts", "series"]);
 export default function Home() {
   const [session, setSession] = useState<CoachSession | null>(null);
   // coach id → name, to say who wrote each study on the Other Coaches' Studies screen.
+  const [showChangePin, setShowChangePin] = useState(false);
   const [pendingSignups, setPendingSignups] = useState(0);
   const [editStudy, setEditStudy] = useState<Study | undefined>(undefined);
   const [previews, setPreviews] = useState<Study[]>([]);
@@ -104,6 +106,14 @@ export default function Home() {
     // Admin would otherwise only apply after signing out. Refresh it from the
     // registry — but only on a confirmed read, never from a cached fallback.
     if (coachSession) {
+      // My own record: a role, AI switch or PIN flag the Creator changed applies now, not at the next sign-in.
+      loadMe().then((me) => {
+        if (!me) return;
+        if (me.role === coachSession.role && me.name === coachSession.name && !!me.ai === !!coachSession.ai && !!me.mustChangePin === !!coachSession.mustChangePin) return;
+        const next: CoachSession = { ...coachSession, name: me.name, role: me.role, ai: me.ai, mustChangePin: me.mustChangePin };
+        saveSession(next);
+        setSession(next);
+      });
       loadCoaches().then(({ ok, coaches }) => {
         if (!ok) return;
         setCoachNames(Object.fromEntries(coaches.map((c) => [c.id, c.name])));
@@ -380,7 +390,7 @@ export default function Home() {
   }
 
   const permitted = allowedTabs(session?.role);
-  const aiOk = canUseAI(session?.role);
+  const aiOk = canUseAI(session?.role, session?.ai);
   const canOpen = (t: string) => !permitted || permitted.includes(t);
   const socialOnly = isSocialMediaRole(session?.role);
   const visibleNav = NAV.filter((n) => canOpen(n.id) && (n.id !== "others" || !isCreator));
@@ -550,6 +560,7 @@ export default function Home() {
                 <div style={{ fontSize: 12, fontWeight: 700, color: "white", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{session.name}</div>
                 <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)" }}>{session.role}</div>
               </div>
+              <button onClick={() => setShowChangePin(true)} title="Change my PIN" aria-label="Change my PIN" style={{ background: "none", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 6, padding: "4px 8px", color: "rgba(255,255,255,0.45)", fontSize: 11, cursor: "pointer", flexShrink: 0 }}>🔑</button>
               <button onClick={() => { clearSession(); setSession(null); }} style={{ background: "none", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 6, padding: "4px 8px", color: "rgba(255,255,255,0.45)", fontSize: 11, cursor: "pointer", flexShrink: 0, fontFamily: "Arial, sans-serif" }}>
                 Sign out
               </button>
@@ -755,6 +766,13 @@ export default function Home() {
           onSaveNotes={handleSaveNotes} onSaveEntries={handleSaveEntries} onSaveAttend={handleSaveAttend}
           onDeleteDraft={handleDeleteDraft} onDeleteStudy={handleDeleteStudy} onToast={showToast}
           onEdit={canEdit(openStudy) ? (s) => { setEditStudy(s); setOpenStudyId(null); changeTab("create"); } : undefined} />
+      )}
+      {session && (session.mustChangePin || showChangePin) && (
+        <ChangePin
+          required={!!session.mustChangePin}
+          onDone={() => { setShowChangePin(false); const s = getSession(); if (s) setSession(s); showToast("PIN changed."); }}
+          onClose={() => setShowChangePin(false)}
+        />
       )}
       {toast && <Toast message={toast} onDone={() => setToast(null)} />}
     </div>
