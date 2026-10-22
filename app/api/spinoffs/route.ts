@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireCoach } from "@/lib/auth";
+import { AI_ROLES } from "@/lib/roles";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
 export async function POST(req: NextRequest) {
   // Every call spends the Gemini quota, so only signed-in coaches may use it.
-  const auth = await requireCoach(req);
+  const auth = await requireCoach(req, { roles: AI_ROLES });
   if (!auth.ok) return auth.response;
 
   const { topic } = await req.json();

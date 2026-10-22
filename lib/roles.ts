@@ -29,3 +29,14 @@ export function allowedTabs(role: string | undefined): readonly string[] | null 
 export function defaultTab(role: string | undefined): string {
   return isSocialMediaRole(role) ? "social" : "all";
 }
+
+/**
+ * Who may use the AI (generate a study, import, spin-off ideas, prep guide). Each call spends the Gemini quota and
+ * writes in Anthony's voice, so only a Head Coach gets it. The server enforces this on every AI route; the app just
+ * hides the buttons so nobody taps into an error.
+ */
+export const AI_ROLES = ["Head Coach"];
+
+export function canUseAI(role: string | undefined): boolean {
+  return !!role && AI_ROLES.includes(role);
+}

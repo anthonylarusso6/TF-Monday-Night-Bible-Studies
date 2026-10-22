@@ -33,6 +33,8 @@ interface CoachGrowProps {
   journalKey: string;
   profileKey: string;
   attendanceGoal: number;
+  /** The prep guide is written by the AI; only coaches allowed it get the button. */
+  canUseAI?: boolean;
   onSaveReflection: (text: string) => void;
   onSaveProfile: (profile: CoachProfile) => void;
   onSaveSeasonVerse: (verse: SeasonVerse) => void;
@@ -97,7 +99,7 @@ function Sparkline({ data, goal }: { data: number[]; goal: number }) {
 }
 
 // ── Main component ─────────────────────────────────────────────────────────────
-export default function CoachGrow({ latestStudy, allStudies, userData, attendanceGoal, journalKey, profileKey, onSaveReflection, onSaveProfile, onSaveSeasonVerse }: CoachGrowProps) {
+export default function CoachGrow({ latestStudy, allStudies, userData, attendanceGoal, canUseAI = false, journalKey, profileKey, onSaveReflection, onSaveProfile, onSaveSeasonVerse }: CoachGrowProps) {
   const [section, setSection] = useState<Section>("dashboard");
 
   // Profile
@@ -291,9 +293,9 @@ export default function CoachGrow({ latestStudy, allStudies, userData, attendanc
                   <div style={{ fontSize: 14, fontWeight: 700 }}>{latestStudy.title}</div>
                   <div style={{ fontSize: 12, color: "var(--text2)", marginTop: 2 }}>{latestStudy.date}</div>
                 </div>
-                <button onClick={generatePrep} disabled={prepLoading} style={{ padding: "10px 18px", background: "var(--primary)", color: "white", border: "none", borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: prepLoading ? "not-allowed" : "pointer", opacity: prepLoading ? 0.7 : 1, display: "flex", alignItems: "center", gap: 6 }}>
+                {canUseAI && <button onClick={generatePrep} disabled={prepLoading} style={{ padding: "10px 18px", background: "var(--primary)", color: "white", border: "none", borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: prepLoading ? "not-allowed" : "pointer", opacity: prepLoading ? 0.7 : 1, display: "flex", alignItems: "center", gap: 6 }}>
                   {prepLoading ? <><span className="spinner" />Generating...</> : "✦ Generate Prep Guide"}
-                </button>
+                </button>}
               </div>
               {prepError && <div className="error-box" style={{ marginBottom: 16 }}>{prepError}</div>}
               {prepGuide && (

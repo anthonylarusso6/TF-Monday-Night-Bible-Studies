@@ -11,9 +11,11 @@ interface SpinOff {
 interface TopicIdeasProps {
   onCreateDraft: (topic: string) => void;
   onQuickCreate: (topic: string) => void;
+  /** Spin-off ideas and Generate Full Study spend the AI; only coaches allowed it see them. */
+  canUseAI?: boolean;
 }
 
-export default function TopicIdeas({ onCreateDraft, onQuickCreate }: TopicIdeasProps) {
+export default function TopicIdeas({ onCreateDraft, onQuickCreate, canUseAI = false }: TopicIdeasProps) {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [spinoffs, setSpinoffs] = useState<Record<string, SpinOff[]>>({});
   const [loading, setLoading] = useState<string | null>(null);
@@ -23,7 +25,7 @@ export default function TopicIdeas({ onCreateDraft, onQuickCreate }: TopicIdeasP
     if (expanded === topic) { setExpanded(null); return; }
     setExpanded(topic);
     setError(null);
-    if (spinoffs[topic]) return; // already loaded
+    if (!canUseAI || spinoffs[topic]) return; // already loaded, or no AI for this coach
 
     setLoading(topic);
     try {
@@ -45,7 +47,9 @@ export default function TopicIdeas({ onCreateDraft, onQuickCreate }: TopicIdeasP
   return (
     <div>
       <p style={{ fontFamily: "Arial, sans-serif", fontSize: 13, color: "var(--text2)", marginBottom: 20, lineHeight: 1.6 }}>
-        Tap any topic to see specific study angles. Tap an angle to generate the full study instantly.
+        {canUseAI
+          ? "Tap any topic to see specific study angles. Tap an angle to generate the full study instantly."
+          : "Tap any topic to save it as a draft to build out."}
       </p>
 
       {error && (
@@ -84,12 +88,12 @@ export default function TopicIdeas({ onCreateDraft, onQuickCreate }: TopicIdeasP
 
                       {/* Quick actions for the main topic */}
                       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-                        <button
+                        {canUseAI && <button
                           onClick={() => onQuickCreate(topic)}
                           style={{ padding: "8px 16px", background: "var(--primary)", color: "white", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, WebkitTapHighlightColor: "transparent" }}
                         >
                           ✏️ Generate Full Study
-                        </button>
+                        </button>}
                         <button
                           onClick={() => onCreateDraft(topic)}
                           style={{ padding: "8px 14px", background: "var(--bg)", color: "var(--text2)", border: "1.5px solid var(--border)", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", WebkitTapHighlightColor: "transparent" }}
@@ -99,11 +103,11 @@ export default function TopicIdeas({ onCreateDraft, onQuickCreate }: TopicIdeasP
                       </div>
 
                       {/* Spin-off angles */}
-                      <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "1.5px", color: "var(--text2)", marginBottom: 10 }}>
+                      {canUseAI && <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "1.5px", color: "var(--text2)", marginBottom: 10 }}>
                         Specific Angles
-                      </div>
+                      </div>}
 
-                      {isLoading ? (
+                      {!canUseAI ? null : isLoading ? (
                         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 0", color: "var(--text2)", fontFamily: "Arial, sans-serif", fontSize: 13 }}>
                           <span className="spinner" style={{ borderColor: "rgba(90,120,140,0.3)", borderTopColor: "var(--accent)" }} />
                           Generating ideas...

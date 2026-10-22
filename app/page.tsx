@@ -7,7 +7,7 @@ import type { StudyStore } from "@/lib/supabase";
 import { LOCATIONS, Location } from "@/lib/locations";
 import { getSession, clearSession, setSession as saveSession, loadCoaches, CoachSession } from "@/lib/coaches";
 import { AUTH_EXPIRED_EVENT } from "@/lib/session";
-import { allowedTabs, defaultTab, isSocialMediaRole } from "@/lib/roles";
+import { allowedTabs, defaultTab, isSocialMediaRole, canUseAI } from "@/lib/roles";
 import StudyGrid from "@/components/StudyGrid";
 import StudyModal from "@/components/StudyModal";
 import TopicIdeas from "@/components/TopicIdeas";
@@ -168,6 +168,8 @@ export default function Home() {
   useEffect(() => {
     const allowed = allowedTabs(session?.role);
     if (allowed && !allowed.includes(tab)) setTab(defaultTab(session?.role) as Tab);
+    // Creating a study is the AI screen: anyone without AI never lands on it, not even from a saved tab.
+    if (session && tab === "create" && !canUseAI(session.role)) setTab("all");
   }, [session?.role, tab]);
 
   // Close sidebar on ESC
@@ -353,7 +355,8 @@ export default function Home() {
   }
 
   const permitted = allowedTabs(session?.role);
-  const canOpen = (t: string) => !permitted || permitted.includes(t);
+  const aiOk = canUseAI(session?.role);
+  const canOpen = (t: string) => (!permitted || permitted.includes(t)) && (aiOk || t !== "create");
   const socialOnly = isSocialMediaRole(session?.role);
   const visibleNav = NAV.filter((n) => canOpen(n.id));
 
@@ -619,6 +622,7 @@ export default function Home() {
           })()}
           {tab === "topics" && (
             <TopicIdeas
+              canUseAI={aiOk}
               onCreateDraft={handleCreateDraft}
               onQuickCreate={(topic) => {
                 setPrefilledTopic(topic);
@@ -635,6 +639,7 @@ export default function Home() {
           )}
           {tab === "grow" && (
             <CoachGrow
+              canUseAI={aiOk}
               latestStudy={allStudies.find(s => !s.draft) ?? null}
               allStudies={allStudies}
               userData={userData}
@@ -687,7 +692,7 @@ export default function Home() {
 
       {/* FAB — mobile only. Hidden where it would sit on top of the screen's
           own main action, and on Create itself where it does nothing. */}
-      {tab !== "create" && tab !== "social" && (
+      {aiOk && tab !== "create" && tab !== "social" && (
         <button className="fab" onClick={() => changeTab("create")}>
           ✏️ Create
         </button>
