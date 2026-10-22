@@ -23,12 +23,13 @@ const unavailable = (e: unknown) => NextResponse.json(
 export async function GET(req: NextRequest) {
   try {
     const coaches = await readRegistry();
-    // The sign-in screen is public, so it lists only ordinary, approved coaches: the Creator's name is not on it
-    // (they type it) and neither are accounts still waiting. A signed-in manager sees the whole registry.
+    // The sign-in screen is public, so it lists approved coaches only (accounts still waiting stay off it), and the
+    // Creator appears there as "Lead Coach": the name is listed, the real role is not. A signed-in manager sees
+    // the whole registry as it is.
     const manager = await requireCoach(req, { roles: MANAGER_ROLES });
     const visible = manager.ok
       ? coaches
-      : coaches.filter((c) => c.role !== ROLE_CREATOR && !c.pending);
+      : coaches.filter((c) => !c.pending).map((c) => (c.role === ROLE_CREATOR ? { ...c, role: "Lead Coach" } : c));
     return NextResponse.json({ ok: true, coaches: visible.map(publicCoach) });
   } catch (e) {
     return unavailable(e);
