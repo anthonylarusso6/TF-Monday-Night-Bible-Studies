@@ -16,6 +16,8 @@ export interface Coach {
   name: string;
   role: string;
   locationId: string;
+  /** Signed up from the login screen, waiting for an admin to approve. */
+  pending?: boolean;
 }
 
 /**
@@ -66,7 +68,8 @@ async function post(body: Record<string, unknown>) {
 
 export async function loadCoaches(): Promise<RegistryResult> {
   try {
-    const res = await fetch("/api/coaches", { cache: "no-store" });
+    // authFetch so a signed-in manager gets the full list (including pending sign-ups); everyone else gets the public one.
+    const res = await authFetch("/api/coaches", { cache: "no-store" });
     const json = await res.json();
     if (!res.ok || !json.ok) throw new Error(json.error || `Request failed (${res.status})`);
     const coaches: Coach[] = json.coaches || [];
@@ -98,7 +101,7 @@ export async function addCoach(coach: NewCoach): Promise<{ coach: Coach; token?:
 }
 
 export async function updateCoach(update: {
-  id: string; name?: string; role?: string; locationId?: string; pin?: string;
+  id: string; name?: string; role?: string; locationId?: string; pin?: string; approve?: boolean;
 }): Promise<Coach[]> {
   const { coaches, token } = await post({ action: "update", ...update });
   // Changing your own PIN invalidates your old sign-in; the server sends a
@@ -117,8 +120,14 @@ export async function removeCoach(id: string): Promise<Coach[]> {
   return coaches as Coach[];
 }
 
+/** Self sign-up from the login screen: creates a pending account an admin has to approve. */
+export async function signUpCoach(c: NewCoach): Promise<void> {
+  await post({ action: "signup", ...c });
+}
+
 export interface SignInResult {
   coach: Coach | null;
+  pending?: boolean;
   token?: string;
   /** Set when too many wrong PINs have locked this name for a while. */
   lockedMinutes?: number;
@@ -129,11 +138,11 @@ export interface SignInResult {
  * is not on this device.
  */
 export async function verifyPin(name: string, pin: string): Promise<SignInResult> {
-  const { coach, token, lockedMinutes } = await post({ action: "verify", name, pin });
-  return { coach: (coach as Coach) ?? null, token, lockedMinutes };
+  const { coach, token, lockedMinutes, pending } = await post({ action: "verify", name, pin });
+  return { coach: (coach as Coach) ?? null, token, lockedMinutes, pending };
 }
 
 import { ROLE_SOCIAL_MEDIA } from "./roles";
 
-export const ROLES = ["Head Coach", "Assistant Coach", "Volunteer", ROLE_SOCIAL_MEDIA];
+export const ROLES = ["Creator", "Head Coach", "Admin", "Assistant Coach", "Volunteer", ROLE_SOCIAL_MEDIA];
 export { LOCATIONS };

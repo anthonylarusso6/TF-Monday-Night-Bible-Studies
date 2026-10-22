@@ -7,7 +7,7 @@ import type { StudyStore } from "@/lib/supabase";
 import { LOCATIONS, Location } from "@/lib/locations";
 import { getSession, clearSession, setSession as saveSession, loadCoaches, CoachSession } from "@/lib/coaches";
 import { AUTH_EXPIRED_EVENT } from "@/lib/session";
-import { allowedTabs, defaultTab, isSocialMediaRole, canUseAI } from "@/lib/roles";
+import { allowedTabs, defaultTab, isSocialMediaRole, canUseAI, isManager } from "@/lib/roles";
 import StudyGrid from "@/components/StudyGrid";
 import StudyModal from "@/components/StudyModal";
 import TopicIdeas from "@/components/TopicIdeas";
@@ -472,8 +472,8 @@ export default function Home() {
           {item.label}
         </button>
       ))}
-      {/* Admin — Head Coach only */}
-      {session?.role === "Head Coach" && canOpen("admin") && (
+      {/* Admin — Creator, Head Coach, or a location Admin */}
+      {isManager(session?.role) && canOpen("admin") && (
         <button className={`sidebar-item${tab === "admin" ? " active" : ""}`} onClick={() => changeTab("admin")}>
           <span className="sidebar-icon">⚙️</span>
           Admin
@@ -686,7 +686,7 @@ export default function Home() {
             </div>
           )}
           {tab === "dashboard" && <LocationDashboard />}
-          {tab === "admin" && session?.role === "Head Coach" && <AdminPanel session={session} />}
+          {tab === "admin" && isManager(session?.role) && <AdminPanel session={session} />}
         </div>
       </div>
 

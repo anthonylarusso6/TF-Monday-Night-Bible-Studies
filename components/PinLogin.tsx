@@ -1,7 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
+import { ADMIN_ASSIGNABLE } from "@/lib/roles";
 import {
-  Coach, CoachSession, loadCoaches, addCoach, verifyPin,
+  Coach, CoachSession, loadCoaches, addCoach, signUpCoach, verifyPin,
   setSession, ROLES, LOCATIONS,
 } from "@/lib/coaches";
 
@@ -11,7 +12,7 @@ interface PinLoginProps {
   notice?: string | null;
 }
 
-type View = "name" | "pin" | "setup" | "addCoach" | "offline";
+type View = "name" | "pin" | "setup" | "addCoach" | "signup" | "offline";
 
 export default function PinLogin({ onLogin, notice }: PinLoginProps) {
   const [view, setView] = useState<View>("name");
@@ -27,6 +28,8 @@ export default function PinLogin({ onLogin, notice }: PinLoginProps) {
   // Add coach form
   const [newName, setNewName] = useState("");
   const [newRole, setNewRole] = useState("Head Coach");
+  // Sign-up never offers Creator, Head Coach or Admin: those are handed out by an admin, not picked on a login screen.
+  const signupRoles = ADMIN_ASSIGNABLE;
   const [newLocation, setNewLocation] = useState(LOCATIONS[0].id);
   const [newPin, setNewPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
@@ -57,7 +60,12 @@ export default function PinLogin({ onLogin, notice }: PinLoginProps) {
     setVerifying(true);
     setError("");
     try {
-      const { coach, token, lockedMinutes } = await verifyPin(nameInput, pin);
+      const { coach, token, lockedMinutes, pending } = await verifyPin(nameInput, pin);
+      if (pending) {
+        setPin("");
+        setError("Your account is waiting for approval. An admin has to approve it before you can sign in.");
+        return;
+      }
       if (coach && token) {
         const session: CoachSession = {
           coachId: coach.id,
@@ -113,6 +121,22 @@ export default function PinLogin({ onLogin, notice }: PinLoginProps) {
       setError(e instanceof Error ? e.message : "Couldn't create the account. Try again.");
       setSaving(false);
     }
+  }
+
+  async function handleSignUp() {
+    if (!newName.trim()) { setError("Enter your name."); return; }
+    if (newPin.length !== 4) { setError("PIN must be 4 digits."); return; }
+    if (newPin !== confirmPin) { setError("PINs don't match."); return; }
+    setError(""); setSaving(true);
+    try {
+      await signUpCoach({ name: newName.trim(), pin: newPin, role: signupRoles.includes(newRole) ? newRole : signupRoles[0], locationId: newLocation });
+      setNewName(""); setNewPin(""); setConfirmPin("");
+      setView("name");
+      setError("Account created. An admin has to approve it, then you can sign in with your name and PIN.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't create the account. Try again.");
+    }
+    setSaving(false);
   }
 
   function tapPin(digit: string) {
@@ -189,6 +213,32 @@ export default function PinLogin({ onLogin, notice }: PinLoginProps) {
             </div>
           )}
 
+          {/* ── Create an account (waits for admin approval) ── */}
+          {view === "signup" && (
+            <div>
+              <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 4, color: "#0f2530" }}>Create an Account</div>
+              <p style={{ fontSize: 13, color: "#567888", marginBottom: 20, fontFamily: "Arial, sans-serif", lineHeight: 1.5 }}>
+                An admin approves new accounts before they can sign in.
+              </p>
+              <input placeholder="First and last name" value={newName} onChange={e => setNewName(e.target.value)} style={inputStyle} />
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
+                <select value={signupRoles.includes(newRole) ? newRole : signupRoles[0]} onChange={e => setNewRole(e.target.value)} style={selectStyle}>
+                  {signupRoles.map(r => <option key={r}>{r}</option>)}
+                </select>
+                <select value={newLocation} onChange={e => setNewLocation(e.target.value)} style={selectStyle}>
+                  {LOCATIONS.map(l => <option key={l.id} value={l.id}>{l.name.replace("Triple F ", "")}</option>)}
+                </select>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 18 }}>
+                <input placeholder="4-digit PIN" maxLength={4} value={newPin} onChange={e => setNewPin(e.target.value.replace(/\D/g, "").slice(0,4))} type="password" style={inputStyle} />
+                <input placeholder="Confirm PIN" maxLength={4} value={confirmPin} onChange={e => setConfirmPin(e.target.value.replace(/\D/g, "").slice(0,4))} type="password" style={inputStyle} />
+              </div>
+              {error && <div style={errorStyle}>{error}</div>}
+              <button onClick={handleSignUp} disabled={saving || offline} style={btnStyle}>{saving ? "Saving..." : "Create Account"}</button>
+              <button onClick={() => { setView("name"); setError(""); }} style={{ ...ghostBtnStyle, marginTop: 8 }}>Back to sign in</button>
+            </div>
+          )}
+
           {/* ── Name selection ── */}
           {view === "name" && (
             <div>
@@ -221,10 +271,15 @@ export default function PinLogin({ onLogin, notice }: PinLoginProps) {
                     </div>
                   </button>
                 ))}
-                {filteredCoaches.length === 0 && nameInput && (
-                  <div style={{ textAlign: "center", padding: "16px", color: "#567888", fontSize: 13, fontFamily: "Arial, sans-serif" }}>No coach found with that name.</div>
+                {nameInput.trim() && !coaches.some(c => c.name.toLowerCase() === nameInput.trim().toLowerCase()) && (
+                  // Not every account is listed (the Creator's is hidden), so any typed name can go on to the PIN.
+                  <button onClick={() => { setNameInput(nameInput.trim()); setView("pin"); setPin(""); setError(""); }}
+                    style={{ padding: "12px 14px", background: "white", border: "1.5px dashed #d4e8f2", borderRadius: 10, cursor: "pointer", textAlign: "left", fontSize: 14, fontWeight: 700, color: "#0f4f6a" }}>
+                    Sign in as “{nameInput.trim()}”
+                  </button>
                 )}
               </div>
+              {error && <div style={errorStyle}>{error}</div>}
               {offline ? (
                 <div style={{ fontSize: 12, color: "#92652a", background: "#fdf6e7", border: "1px solid #f0dcb0", borderRadius: 8, padding: "9px 12px", fontFamily: "Arial, sans-serif", lineHeight: 1.5 }}>
                   Offline — this is your saved coach list. Signing in needs a
@@ -232,7 +287,8 @@ export default function PinLogin({ onLogin, notice }: PinLoginProps) {
                 </div>
               ) : (
                 <div style={{ fontSize: 12, color: "#567888", textAlign: "center", fontFamily: "Arial, sans-serif", lineHeight: 1.5, padding: "4px 8px" }}>
-                  Not listed? Ask your Head Coach to add you.
+                  New here?{" "}
+                  <button onClick={() => { setView("signup"); setError(""); }} style={{ background: "none", border: "none", color: "#0f4f6a", fontWeight: 700, cursor: "pointer", padding: 0, textDecoration: "underline", fontSize: 12 }}>Create an account</button>
                 </div>
               )}
             </div>

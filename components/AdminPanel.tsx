@@ -2,20 +2,26 @@
 import { useState, useEffect } from "react";
 import { Coach, loadCoaches, updateCoach, addCoach, removeCoach, ROLES, LOCATIONS } from "@/lib/coaches";
 import { CoachSession } from "@/lib/coaches";
+import { assignableRoles, mayManage, ROLE_ADMIN } from "@/lib/roles";
 
 interface AdminPanelProps {
   session: CoachSession;
 }
 
 export default function AdminPanel({ session }: AdminPanelProps) {
-  const [coaches, setCoaches] = useState<Coach[]>([]);
+  const [allCoaches, setCoaches] = useState<Coach[]>([]);
+  // An Admin runs one location: they only see, and only get to change, the coaches there.
+  const isLocationAdmin = session.role === ROLE_ADMIN;
+  const coaches = isLocationAdmin ? allCoaches.filter((c) => c.locationId === session.locationId) : allCoaches;
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<"list" | "add" | "edit">("list");
   const [editingCoach, setEditingCoach] = useState<Coach | null>(null);
+  const noCreatorYet = !allCoaches.some((c) => c.role === "Creator");
+  const roleChoices = ROLES.filter((r) => assignableRoles(session.role).includes(r) || (r === "Creator" && session.role === "Head Coach" && noCreatorYet && editingCoach?.id === session.coachId));
 
   // Form fields
   const [name, setName] = useState("");
-  const [role, setRole] = useState("Head Coach");
+  const [role, setRole] = useState("Assistant Coach");
   const [locationId, setLocationId] = useState(LOCATIONS[0].id);
   const [pin, setPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
@@ -38,7 +44,7 @@ export default function AdminPanel({ session }: AdminPanelProps) {
   }
 
   function startAdd() {
-    setName(""); setRole("Head Coach"); setLocationId(LOCATIONS[0].id);
+    setName(""); setRole("Assistant Coach"); setLocationId(isLocationAdmin ? session.locationId : LOCATIONS[0].id);
     setPin(""); setConfirmPin(""); setError("");
     setView("add");
   }
@@ -91,6 +97,15 @@ export default function AdminPanel({ session }: AdminPanelProps) {
     setSaving(false);
   }
 
+  async function handleApprove(coach: Coach) {
+    try {
+      setCoaches(await updateCoach({ id: coach.id, approve: true }));
+      showToast(`${coach.name} approved.`);
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : "Couldn't approve.");
+    }
+  }
+
   async function handleDelete(coach: Coach) {
     if (coach.id === session.coachId) { showToast("You can't delete yourself."); return; }
     if (!confirm(`Remove ${coach.name}? They won't be able to log in.`)) return;
@@ -111,7 +126,9 @@ export default function AdminPanel({ session }: AdminPanelProps) {
       <div style={{ marginBottom: 20 }}>
         <h3 style={{ fontSize: 18, fontWeight: 800, marginBottom: 4 }}>Admin Panel</h3>
         <p style={{ fontSize: 13, color: "var(--text2)", fontFamily: "Arial, sans-serif", lineHeight: 1.6 }}>
-          Manage coaches for all Triple F locations. Only Head Coaches can see this.
+          {isLocationAdmin
+            ? "Manage the coaches at your location."
+            : "Manage coaches for all Triple F locations. Only the Creator, Head Coaches and location Admins can see this."}
         </p>
       </div>
 
@@ -153,6 +170,7 @@ export default function AdminPanel({ session }: AdminPanelProps) {
                     <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                       <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text)" }}>{coach.name}</span>
                       {isMe && <span style={{ fontSize: 10, fontWeight: 700, background: "rgba(26,138,181,0.12)", color: "var(--accent)", padding: "2px 8px", borderRadius: 20 }}>You</span>}
+                      {coach.pending && <span style={{ fontSize: 10, fontWeight: 700, background: "#fdf6e7", color: "#92652a", padding: "2px 8px", borderRadius: 20 }}>Waiting for approval</span>}
                     </div>
                     <div style={{ fontSize: 12, color: "var(--text2)", fontFamily: "Arial, sans-serif", marginTop: 2 }}>
                       {coach.role}
@@ -161,10 +179,15 @@ export default function AdminPanel({ session }: AdminPanelProps) {
                   </div>
                   {/* Actions */}
                   <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                    <button onClick={() => startEdit(coach)} style={{ padding: "6px 12px", background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12, fontWeight: 600, color: "var(--text2)", cursor: "pointer" }}>
+                    {coach.pending && mayManage(session, coach) && (
+                      <button onClick={() => handleApprove(coach)} style={{ padding: "6px 12px", background: "var(--primary)", border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700, color: "white", cursor: "pointer" }}>
+                        Approve
+                      </button>
+                    )}
+                    {mayManage(session, coach) && <button onClick={() => startEdit(coach)} style={{ padding: "6px 12px", background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12, fontWeight: 600, color: "var(--text2)", cursor: "pointer" }}>
                       ✎ Edit
-                    </button>
-                    {!isMe && (
+                    </button>}
+                    {!isMe && mayManage(session, coach) && (
                       <button onClick={() => handleDelete(coach)} style={{ padding: "6px 10px", background: "none", border: "1px solid rgba(220,38,38,0.3)", borderRadius: 8, fontSize: 12, color: "#dc2626", cursor: "pointer" }}>
                         ✕
                       </button>
@@ -217,12 +240,12 @@ export default function AdminPanel({ session }: AdminPanelProps) {
               <div>
                 <label className="form-label">Role</label>
                 <select className="form-select" value={role} onChange={e => setRole(e.target.value)}>
-                  {ROLES.map(r => <option key={r}>{r}</option>)}
+                  {roleChoices.map(r => <option key={r}>{r}</option>)}
                 </select>
               </div>
               <div>
                 <label className="form-label">Location</label>
-                <select className="form-select" value={locationId} onChange={e => setLocationId(e.target.value)}>
+                <select className="form-select" value={locationId} disabled={isLocationAdmin} onChange={e => setLocationId(e.target.value)}>
                   {LOCATIONS.map(l => <option key={l.id} value={l.id}>{l.name.replace("Triple F ", "")}</option>)}
                 </select>
               </div>

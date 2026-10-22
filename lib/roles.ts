@@ -30,13 +30,54 @@ export function defaultTab(role: string | undefined): string {
   return isSocialMediaRole(role) ? "social" : "all";
 }
 
+export const ROLE_CREATOR = "Creator";
+export const ROLE_ADMIN = "Admin";
+export const ROLE_HEAD_COACH = "Head Coach";
+
 /**
  * Who may use the AI (generate a study, import, spin-off ideas, prep guide). Each call spends the Gemini quota and
- * writes in Anthony's voice, so only a Head Coach gets it. The server enforces this on every AI route; the app just
+ * writes in Anthony's voice, so only the Creator gets it. The server enforces this on every AI route; the app just
  * hides the buttons so nobody taps into an error.
  */
-export const AI_ROLES = ["Head Coach"];
+export const AI_ROLES = [ROLE_CREATOR];
 
 export function canUseAI(role: string | undefined): boolean {
   return !!role && AI_ROLES.includes(role);
+}
+
+/** Full control of every coach at every location. */
+export const FULL_ROLES = [ROLE_CREATOR, ROLE_HEAD_COACH];
+
+/** Anyone who sees the Admin tab. An Admin is scoped to their own location (see `adminMayManage`). */
+export const MANAGER_ROLES = [ROLE_CREATOR, ROLE_HEAD_COACH, ROLE_ADMIN];
+
+/** The only roles a location Admin can hand out: nobody can promote someone above or level with themselves. */
+export const ADMIN_ASSIGNABLE = ["Assistant Coach", "Volunteer", ROLE_SOCIAL_MEDIA];
+
+export function isManager(role: string | undefined): boolean {
+  return !!role && MANAGER_ROLES.includes(role);
+}
+
+/** Roles this signed-in role may give to a coach. */
+export function assignableRoles(role: string | undefined): string[] {
+  if (role === ROLE_CREATOR) return [ROLE_CREATOR, ROLE_HEAD_COACH, ROLE_ADMIN, ...ADMIN_ASSIGNABLE];
+  if (role === ROLE_HEAD_COACH) return [ROLE_HEAD_COACH, ROLE_ADMIN, ...ADMIN_ASSIGNABLE];
+  if (role === ROLE_ADMIN) return ADMIN_ASSIGNABLE;
+  return [];
+}
+
+/**
+ * May a signed-in coach change this target (or create one with this role and location)?
+ * Creator and Head Coach: anyone except a Creator (only a Creator touches a Creator). Admin: only coaches at their
+ * own location whose role is one they could assign.
+ */
+export function mayManage(
+  actor: { role: string; locationId: string },
+  target: { role: string; locationId: string },
+): boolean {
+  if (actor.role === ROLE_CREATOR) return true;
+  if (target.role === ROLE_CREATOR) return false;
+  if (actor.role === ROLE_HEAD_COACH) return true;
+  if (actor.role === ROLE_ADMIN) return target.locationId === actor.locationId && ADMIN_ASSIGNABLE.includes(target.role);
+  return false;
 }

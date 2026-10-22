@@ -30,6 +30,8 @@ export interface StoredCoach {
   pin: string;
   role: string;
   locationId: string;
+  /** Created from the login screen and not yet approved by an admin: cannot sign in or see anything. */
+  pending?: boolean;
 }
 
 export const HEAD_COACH = "Head Coach";
@@ -136,8 +138,9 @@ export async function requireCoach(
   if (!coach || !sameString(sig, sign(payload, coach.pin, key))) {
     return deny(401, "Please sign in again.");
   }
+  if (coach.pending) return deny(403, "Your account is waiting for approval.");
   if (opts.roles && !opts.roles.includes(coach.role)) {
-    return deny(403, "Only a Head Coach can do that.");
+    return deny(403, "You don't have access to that.");
   }
   return { ok: true, coach, registry };
 }
