@@ -173,7 +173,8 @@ export default function AdminPanel({ session }: AdminPanelProps) {
                       {coach.pending && <span style={{ fontSize: 10, fontWeight: 700, background: "#fdf6e7", color: "#92652a", padding: "2px 8px", borderRadius: 20 }}>Waiting for approval</span>}
                     </div>
                     <div style={{ fontSize: 12, color: "var(--text2)", fontFamily: "Arial, sans-serif", marginTop: 2 }}>
-                      {coach.role}
+                      {/* To everyone but the Creator, the Creator reads as a plain Admin. */}
+                      {coach.role === "Creator" && session.role !== "Creator" ? "Admin" : coach.role}
                       {loc && <> · <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><span style={{ width: 6, height: 6, borderRadius: "50%", background: loc.color, display: "inline-block" }} />{loc.name.replace("Triple F ", "")}</span></>}
                     </div>
                   </div>
