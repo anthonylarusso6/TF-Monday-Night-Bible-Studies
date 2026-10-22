@@ -99,7 +99,7 @@ export default function TopicIdeas({ onCreateDraft, onQuickCreate, canUseAI = fa
                           onClick={() => onCreateDraft(topic)}
                           style={{ padding: "8px 14px", background: "var(--bg)", color: "var(--text2)", border: "1.5px solid var(--border)", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", WebkitTapHighlightColor: "transparent" }}
                         >
-                          📝 Save as Draft
+                          ✏️ Build This Study
                         </button>
                       </div>
 

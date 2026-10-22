@@ -12,7 +12,7 @@ import StudyGrid from "@/components/StudyGrid";
 import StudyModal from "@/components/StudyModal";
 import TopicIdeas from "@/components/TopicIdeas";
 import CreateStudy from "@/components/CreateStudy";
-import WriteStudy from "@/components/WriteStudy";
+import StudyBuilder from "@/components/StudyBuilder";
 import OtherStudies from "@/components/OtherStudies";
 import AttendanceChart from "@/components/AttendanceChart";
 import CoachGrow from "@/components/CoachGrow";
@@ -54,6 +54,7 @@ const GRID_TABS = new Set<Tab>(["all", "liked", "drafts", "series"]);
 export default function Home() {
   const [session, setSession] = useState<CoachSession | null>(null);
   // coach id → name, to say who wrote each study on the Other Coaches' Studies screen.
+  const [builderTopic, setBuilderTopic] = useState<string | undefined>(undefined);
   const [coachNames, setCoachNames] = useState<Record<string, string>>({});
   // Studies from before owners were recorded are the Creator's own (the original library and anything made earlier).
   const [creatorName, setCreatorName] = useState("");
@@ -309,18 +310,10 @@ export default function Home() {
   async function handleSaveAttend(id: string | number, count: number) {
     await persist(prev => ({ ...prev, attendance: { ...prev.attendance, [String(id)]: count } }));
   }
-  async function handleCreateDraft(topic: string) {
-    const draft: Study = {
-      id: `draft_${Date.now()}`,
-      date: new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }),
-      title: topic, series: "", draft: true,
-      anchor: { ref: "", text: "" }, sup: [], bi: "Draft — build this study out.",
-      bd: [], sbd: [], qs: [], tk: [],
-      createdBy: session?.coachId,
-    };
-    const ok = await persist(prev => ({ ...prev, drafts: [draft, ...prev.drafts] }));
-    changeTab("drafts");
-    if (ok) showToast(`Draft created: ${topic}`);
+  // A topic from Topic Ideas starts a study in the builder (anchor verse and hints filled in) instead of an empty draft.
+  function handleCreateDraft(topic: string) {
+    setBuilderTopic(topic);
+    changeTab("create");
   }
   async function handleDeleteDraft(id: string | number) {
     const sid = String(id);
@@ -655,11 +648,15 @@ export default function Home() {
                   onToast={showToast}
                 />
               )}
-              <WriteStudy
-                createdBy={session?.coachId}
-                onStudyCreated={async (study) => { await handleStudyCreated(study); setOpenStudyId(study.id); }}
-                onToast={showToast}
-              />
+              {session && (
+                <StudyBuilder
+                  coachId={session.coachId}
+                  startTopic={builderTopic}
+                  onStartTopicUsed={() => setBuilderTopic(undefined)}
+                  onPublish={async (study) => { await handleStudyCreated(study); setOpenStudyId(study.id); showToast(`"${study.title}" is ready. Open Student PDF or the social card below.`); }}
+                  onToast={showToast}
+                />
+              )}
             </>
           )}
           {tab === "grow" && (
