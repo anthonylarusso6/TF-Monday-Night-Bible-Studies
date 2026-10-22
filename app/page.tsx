@@ -13,6 +13,7 @@ import StudyModal from "@/components/StudyModal";
 import TopicIdeas from "@/components/TopicIdeas";
 import CreateStudy from "@/components/CreateStudy";
 import WriteStudy from "@/components/WriteStudy";
+import OtherStudies from "@/components/OtherStudies";
 import AttendanceChart from "@/components/AttendanceChart";
 import CoachGrow from "@/components/CoachGrow";
 import PrayerRequests from "@/components/PrayerRequests";
@@ -23,13 +24,14 @@ import PinLogin from "@/components/PinLogin";
 import AdminPanel from "@/components/AdminPanel";
 import Toast from "@/components/Toast";
 
-type Tab = "all" | "liked" | "drafts" | "series" | "topics" | "create" | "chart" | "grow" | "prayer" | "planner" | "dashboard" | "social" | "admin";
+type Tab = "all" | "liked" | "drafts" | "series" | "topics" | "create" | "chart" | "grow" | "prayer" | "planner" | "dashboard" | "social" | "admin" | "others";
 
 const NAV = [
   { id: "all" as Tab,       icon: "📖", label: "All Studies",    section: "library" },
   { id: "liked" as Tab,     icon: "❤️", label: "Liked",          section: "library" },
   { id: "drafts" as Tab,    icon: "📝", label: "Drafts",         section: "library" },
   { id: "series" as Tab,    icon: "📚", label: "Series",         section: "library" },
+  { id: "others" as Tab,    icon: "👥", label: "Other Coaches' Studies", section: "library" },
   { id: "topics" as Tab,    icon: "💡", label: "Topic Ideas",    section: "tools"   },
   { id: "create" as Tab,    icon: "✏️", label: "Create Study",   section: "tools"   },
   { id: "prayer" as Tab,    icon: "🙏", label: "Prayer Requests",section: "tools"   },
@@ -44,13 +46,15 @@ const TITLES: Record<Tab, string> = {
   all: "All Studies", liked: "Liked", drafts: "Drafts", series: "Series",
   topics: "Topic Ideas", create: "Create Study", chart: "Attendance", grow: "Coach Grow",
   prayer: "Prayer Requests", planner: "Season Planner", dashboard: "All Locations",
-  social: "Social Posts", admin: "Admin",
+  social: "Social Posts", admin: "Admin", others: "Other Coaches' Studies",
 };
 
 const GRID_TABS = new Set<Tab>(["all", "liked", "drafts", "series"]);
 
 export default function Home() {
   const [session, setSession] = useState<CoachSession | null>(null);
+  // coach id → name, to say who wrote each study on the Other Coaches' Studies screen.
+  const [coachNames, setCoachNames] = useState<Record<string, string>>({});
   const [loginNotice, setLoginNotice] = useState<string | null>(null);
   const [sessionLoaded, setSessionLoaded] = useState(false);
   const [tab, setTab] = useState<Tab>("all");
@@ -96,6 +100,7 @@ export default function Home() {
     if (coachSession) {
       loadCoaches().then(({ ok, coaches }) => {
         if (!ok) return;
+        setCoachNames(Object.fromEntries(coaches.map((c) => [c.id, c.name])));
         const current = coaches.find((c) => c.id === coachSession.coachId);
         if (!current) return;
         if (current.role === coachSession.role && current.name === coachSession.name) return;
@@ -272,12 +277,15 @@ export default function Home() {
 
   // Built-in studies only show for locations that have hasBuiltInStudies: true
   const builtInStudies = location.hasBuiltInStudies ? STUDIES : [];
-  const allStudies: Study[] = [
+  const everyStudy: Study[] = [
     ...generatedStudies, ...builtInStudies, ...userData.drafts,
-  ]
-    .filter((s) => !hiddenIds.has(String(s.id)))
-    // A coach sees the shared library and the studies they made themselves, not other coaches'. The Creator sees all.
-    .filter((s) => session?.role === "Creator" || !s.createdBy || s.createdBy === session?.coachId);
+  ].filter((s) => !hiddenIds.has(String(s.id)));
+  const isCreator = session?.role === "Creator";
+  // The main screens hold only the studies a coach made themselves, which pushes them to write their own. The
+  // Creator sees every study. Everyone else sees the rest as previews under "Other Coaches' Studies".
+  const allStudies: Study[] = isCreator ? everyStudy : everyStudy.filter((s) => s.createdBy === session?.coachId);
+  const othersStudies: Study[] = isCreator ? [] : everyStudy.filter((s) => !s.draft && s.createdBy !== session?.coachId);
+  const authorOf = (s: Study) => (s.createdBy ? coachNames[s.createdBy] || "Another coach" : "Triple F library");
 
   const openStudy = openStudyId != null
     ? allStudies.find((s) => String(s.id) === String(openStudyId)) ?? null
@@ -362,7 +370,7 @@ export default function Home() {
   const aiOk = canUseAI(session?.role);
   const canOpen = (t: string) => !permitted || permitted.includes(t);
   const socialOnly = isSocialMediaRole(session?.role);
-  const visibleNav = NAV.filter((n) => canOpen(n.id));
+  const visibleNav = NAV.filter((n) => canOpen(n.id) && (n.id !== "others" || !isCreator));
 
   // Reflections and the coach profile belong to one coach, not the location.
   // Under shared keys every coach at a site read and overwrote the same journal,
@@ -624,6 +632,7 @@ export default function Home() {
               </>
             );
           })()}
+          {tab === "others" && <OtherStudies studies={othersStudies} authorOf={authorOf} onWrite={() => changeTab("create")} />}
           {tab === "topics" && (
             <TopicIdeas
               canUseAI={aiOk}
