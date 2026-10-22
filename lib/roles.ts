@@ -46,10 +46,10 @@ export function canUseAI(role: string | undefined): boolean {
 }
 
 /** Full control of every coach at every location. */
-export const FULL_ROLES = [ROLE_CREATOR, ROLE_HEAD_COACH];
+export const FULL_ROLES = [ROLE_CREATOR];
 
-/** Anyone who sees the Admin tab. An Admin is scoped to their own location (see `adminMayManage`). */
-export const MANAGER_ROLES = [ROLE_CREATOR, ROLE_HEAD_COACH, ROLE_ADMIN];
+/** Anyone who sees the Admin portal. Only the Creator: Head Coach and Admin are roles people hold, not keys to this. */
+export const MANAGER_ROLES = [ROLE_CREATOR];
 
 /** The only roles a location Admin can hand out: nobody can promote someone above or level with themselves. */
 export const ADMIN_ASSIGNABLE = ["Assistant Coach", "Volunteer", ROLE_SOCIAL_MEDIA];

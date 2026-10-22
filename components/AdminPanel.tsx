@@ -128,7 +128,7 @@ export default function AdminPanel({ session }: AdminPanelProps) {
         <p style={{ fontSize: 13, color: "var(--text2)", fontFamily: "Arial, sans-serif", lineHeight: 1.6 }}>
           {isLocationAdmin
             ? "Manage the coaches at your location."
-            : "Manage coaches for all Triple F locations. Only the Creator, Head Coaches and location Admins can see this."}
+            : "Manage coaches for all Triple F locations. Only the Creator can see this."}
         </p>
       </div>
 
